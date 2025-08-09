@@ -12,13 +12,26 @@ export default function ConditionalLayout({ children }: ConditionalLayoutProps) 
     const pathname = usePathname();
 
     // Define routes that should not show navbar and footer
-    const authRoutes = ['/auth/signup', '/auth/signin', '/auth/forgot-password', '/auth/reset-password'];
+    const authRoutes = [
+        '/auth/signup',
+        '/auth/signin',
+        '/auth/forgot-password',
+        '/auth/reset-password'
+    ];
+
+    // Define dashboard routes that should not show navbar and footer
+    const dashboardRoutes = [
+        '/dashboard'
+    ];
 
     // Check if current path is an auth route
     const isAuthRoute = authRoutes.includes(pathname);
 
-    if (isAuthRoute) {
-        // Auth pages: no navbar/footer, full height
+    // Check if current path is a dashboard route (including nested routes)
+    const isDashboardRoute = pathname.startsWith('/dashboard');
+
+    // If it's an auth route or dashboard route, don't show navbar/footer
+    if (isAuthRoute || isDashboardRoute) {
         return (
             <main id="main-content" className="min-h-screen" role="main">
                 {children}

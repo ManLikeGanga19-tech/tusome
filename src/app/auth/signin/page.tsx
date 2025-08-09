@@ -17,6 +17,7 @@ import {
 function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -28,17 +29,49 @@ function SignInPage() {
       ...prev,
       [field]: value
     }));
+    // Clear error when user starts typing
+    if (error) setError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError('');
 
-    // Simulate API call
+    // Simulate API call with validation
     setTimeout(() => {
       setIsLoading(false);
-      console.log('Form submitted:', formData);
+
+      // Check credentials
+      if (formData.email === 'test@gmail.com' && formData.password === 'test123') {
+        console.log('Login successful:', formData);
+
+        // Redirect to dashboard
+        window.location.href = '/dashboard';
+
+        // Alternative using Next.js router (if using Next.js):
+        // import { useRouter } from 'next/navigation';
+        // const router = useRouter();
+        // router.push('/dashboard');
+
+      } else {
+        setError('Invalid email or password. Try: test@gmail.com / test123');
+      }
     }, 2000);
+  };
+
+  // Handle forgot password click
+  const handleForgotPassword = () => {
+    window.location.href = '/auth/forgot-password';
+  };
+
+  // Demo credentials filler
+  const fillDemoCredentials = () => {
+    setFormData({
+      email: 'test@gmail.com',
+      password: 'test123',
+      rememberMe: false
+    });
   };
 
   const features = [
@@ -137,6 +170,25 @@ function SignInPage() {
             </CardHeader>
 
             <CardContent className="space-y-6">
+              {/* Demo Credentials Banner */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">Demo Credentials</p>
+                    <p className="text-xs text-blue-700">test@gmail.com / test123</p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={fillDemoCredentials}
+                    className="text-xs"
+                  >
+                    Use Demo
+                  </Button>
+                </div>
+              </div>
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Email */}
                 <div className="space-y-2">
@@ -183,6 +235,13 @@ function SignInPage() {
                   </div>
                 </div>
 
+                {/* Error Message */}
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                    <p className="text-sm text-red-700">{error}</p>
+                  </div>
+                )}
+
                 {/* Remember Me & Forgot Password */}
                 <div className="flex items-center justify-between pt-2">
                   <div className="flex items-center space-x-2">
@@ -196,12 +255,13 @@ function SignInPage() {
                       Remember me
                     </Label>
                   </div>
-                  <a
-                    href="/auth/forgot-password"
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
                     className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors duration-300"
                   >
                     Forgot password?
-                  </a>
+                  </button>
                 </div>
 
                 {/* Submit Button */}

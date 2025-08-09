@@ -23,7 +23,7 @@ function page() {
     }, []);
 
     const navItems = [
-        { name: 'Course', href: '/course' },
+        { name: 'Course', href: '/courses' },
         { name: 'Success Stories', href: '/success-stories' },
         { name: 'Blog', href: '/blog' },
         { name: 'About', href: '/about' },

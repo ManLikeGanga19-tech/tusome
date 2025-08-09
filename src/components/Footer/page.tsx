@@ -91,10 +91,7 @@ function page() {
                         <h4 className="text-xl font-bold mb-6 text-red-400">Support</h4>
                         <ul className="space-y-4">
                             {[
-                                { name: "Help Center", href: "/help-center" },
                                 { name: "Contact Us", href: "/contact" },
-                                { name: "Privacy Policy", href: "/privacy-policy" },
-                                { name: "Terms of Service", href: "/terms-of-service" },
                                 { name: "FAQs", href: "/faqs" },
                             ].map((link, index) => (
                                 <li key={link.name}>

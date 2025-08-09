@@ -13,6 +13,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -239,13 +247,100 @@ function SignUpPage() {
                   />
                   <Label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
                     I agree to the{' '}
-                    <a href="/terms" className="text-green-600 hover:text-green-700 underline">
-                      Terms of Service
-                    </a>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <button type="button" className="text-green-600 hover:text-green-700 underline">
+                          Terms of Service
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Terms of Service</DialogTitle>
+                          <DialogDescription>
+                            Please read our terms of service carefully.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="mt-4 space-y-4 text-sm">
+                          <h3 className="font-semibold text-base">1. Acceptance of Terms</h3>
+                          <p>By accessing and using Tusome's educational platform, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.</p>
+
+                          <h3 className="font-semibold text-base">2. Service Description</h3>
+                          <p>Tusome provides online educational content aligned with the Kenyan CBC curriculum, optimized for local internet conditions and accessible via M-Pesa payments.</p>
+
+                          <h3 className="font-semibold text-base">3. User Responsibilities</h3>
+                          <p>Users are responsible for maintaining the confidentiality of their account credentials and for all activities that occur under their account.</p>
+
+                          <h3 className="font-semibold text-base">4. Payment Terms</h3>
+                          <p>All payments are processed through M-Pesa and other approved payment methods. Subscription fees are non-refundable except as required by law.</p>
+
+                          <h3 className="font-semibold text-base">5. Content Usage</h3>
+                          <p>All educational content is protected by intellectual property rights. Users may access content for personal educational use only.</p>
+
+                          <h3 className="font-semibold text-base">6. Limitation of Liability</h3>
+                          <p>Tusome's liability is limited to the amount paid by the user for the service. We are not liable for any indirect or consequential damages.</p>
+
+                          <h3 className="font-semibold text-base">7. Termination</h3>
+                          <p>Either party may terminate the service agreement at any time. Upon termination, access to the platform will be revoked.</p>
+
+                          <h3 className="font-semibold text-base">8. Governing Law</h3>
+                          <p>These terms are governed by the laws of Kenya. Any disputes shall be resolved in Kenyan courts.</p>
+
+                          <h3 className="font-semibold text-base">9. Changes to Terms</h3>
+                          <p>Tusome reserves the right to modify these terms at any time. Users will be notified of significant changes.</p>
+
+                          <p className="text-gray-600 text-xs mt-6">Last updated: January 2025</p>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                     {' '}and{' '}
-                    <a href="/privacy" className="text-green-600 hover:text-green-700 underline">
-                      Privacy Policy
-                    </a>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <button type="button" className="text-green-600 hover:text-green-700 underline">
+                          Privacy Policy
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Privacy Policy</DialogTitle>
+                          <DialogDescription>
+                            Learn how we collect, use, and protect your personal information.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="mt-4 space-y-4 text-sm">
+                          <h3 className="font-semibold text-base">1. Information We Collect</h3>
+                          <p>We collect personal information including name, email address, phone number for M-Pesa transactions, and educational progress data to provide our services effectively.</p>
+
+                          <h3 className="font-semibold text-base">2. How We Use Your Information</h3>
+                          <p>Your information is used to provide educational services, process payments, track learning progress, and communicate important updates about your account.</p>
+
+                          <h3 className="font-semibold text-base">3. Data Protection</h3>
+                          <p>We implement industry-standard security measures to protect your personal information. All payment data is encrypted and processed securely through approved payment gateways.</p>
+
+                          <h3 className="font-semibold text-base">4. Information Sharing</h3>
+                          <p>We do not sell, trade, or share your personal information with third parties except as necessary to provide our services (such as payment processing) or as required by law.</p>
+
+                          <h3 className="font-semibold text-base">5. M-Pesa and Payment Data</h3>
+                          <p>Payment information including M-Pesa transaction details are processed through secure, PCI-compliant payment processors. We do not store complete payment card details.</p>
+
+                          <h3 className="font-semibull text-base">6. Educational Records</h3>
+                          <p>Your learning progress, quiz scores, and educational achievements are stored to provide personalized learning experiences and track your academic progress.</p>
+
+                          <h3 className="font-semibold text-base">7. Cookies and Tracking</h3>
+                          <p>We use cookies and similar technologies to improve your experience, remember your preferences, and analyze platform usage to enhance our services.</p>
+
+                          <h3 className="font-semibold text-base">8. Your Rights</h3>
+                          <p>You have the right to access, correct, or delete your personal information. You may also opt-out of marketing communications at any time.</p>
+
+                          <h3 className="font-semibold text-base">9. Data Retention</h3>
+                          <p>We retain your information as long as your account is active or as needed to provide services. Educational records may be retained for academic continuity.</p>
+
+                          <h3 className="font-semibold text-base">10. Contact Us</h3>
+                          <p>For privacy concerns or questions, please contact us at privacy@tusome.ke or through our customer support channels.</p>
+
+                          <p className="text-gray-600 text-xs mt-6">Last updated: January 2025</p>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </Label>
                 </div>
 
