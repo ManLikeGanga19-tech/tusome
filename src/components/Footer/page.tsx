@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { FaFacebookF, FaTwitter, FaLinkedinIn } from 'react-icons/fa'
-
+import Link from 'next/link';
 function page() {
     return (
         <footer className="bg-gradient-to-br from-gray-900 to-black text-white py-20 relative overflow-hidden">
@@ -62,15 +62,24 @@ function page() {
                     <div className="transition-all duration-1000 delay-200">
                         <h4 className="text-xl font-bold mb-6 text-green-400">Quick Links</h4>
                         <ul className="space-y-4">
-                            {['About Us', 'Courses', 'Pricing', 'Success Stories', 'Blog'].map((link, index) => (
-                                <li key={link}>
+                            {[
+                                { name: "About Us", href: "/about" },
+                                { name: "Courses", href: "/courses" },
+                                { name: "Pricing", href: "/pricing" },
+                                { name: "Success Stories", href: "/success-stories" },
+                                { name: "Blog", href: "/blog" },
+                            ].map((link, index) => (
+                                <li key={link.name}>
                                     <Button
+                                        asChild
                                         variant="link"
-                                        className="text-gray-400 hover:text-white transition-all duration-300 p-0 flex items-center"
+                                        className="text-gray-400 hover:text-white transition-all duration-300 p-0 group"
                                         style={{ animationDelay: `${index * 0.1}s` }}
                                     >
-                                        <ChevronRight className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:translate-x-1" />
-                                        {link}
+                                        <Link href={link.href} className="flex items-center gap-2">
+                                            <ChevronRight className="h-4 w-4 flex-shrink-0 transition-transform duration-300 group-hover:translate-x-1" />
+                                            <span className="leading-none">{link.name}</span>
+                                        </Link>
                                     </Button>
                                 </li>
                             ))}
@@ -81,16 +90,24 @@ function page() {
                     <div className="transition-all duration-1000 delay-400">
                         <h4 className="text-xl font-bold mb-6 text-red-400">Support</h4>
                         <ul className="space-y-4">
-                            {['Help Center', 'Contact Us', 'Privacy Policy', 'Terms of Service', 'FAQs'].map((link, index) => (
-                                <li key={link}>
-                                    <Button
-                                        variant="link"
-                                        className="text-gray-400 hover:text-white transition-all duration-300 p-0 flex items-center"
-                                        style={{ animationDelay: `${index * 0.1}s` }}
-                                    >
-                                        <ChevronRight className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:translate-x-1" />
-                                        {link}
-                                    </Button>
+                            {[
+                                { name: "Help Center", href: "/help-center" },
+                                { name: "Contact Us", href: "/contact" },
+                                { name: "Privacy Policy", href: "/privacy-policy" },
+                                { name: "Terms of Service", href: "/terms-of-service" },
+                                { name: "FAQs", href: "/faqs" },
+                            ].map((link, index) => (
+                                <li key={link.name}>
+                                    <Link href={link.href} passHref>
+                                        <Button
+                                            variant="link"
+                                            className="text-gray-400 hover:text-white transition-all duration-300 p-0 flex items-center"
+                                            style={{ animationDelay: `${index * 0.1}s` }}
+                                        >
+                                            <ChevronRight className="h-4 w-4 mr-2 transition-transform duration-300 group-hover:translate-x-1" />
+                                            {link.name}
+                                        </Button>
+                                    </Link>
                                 </li>
                             ))}
                         </ul>
