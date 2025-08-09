@@ -58,7 +58,7 @@ function page() {
                     <div className="transition-all duration-1000 delay-700">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 max-w-6xl mx-auto px-4 sm:px-0">
                             {[
-                                { icon: Users, number: '100+', label: 'Active Students', color: 'green' },
+                                { icon: Users, number: '2k+', label: 'Active Students', color: 'green' },
                                 { icon: Award, number: '8+', label: 'Course Modules', color: 'red' },
                                 { icon: Star, number: '4.9/5', label: 'Student Rating', color: 'yellow' }
                             ].map((stat, index) => (
