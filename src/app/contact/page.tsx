@@ -68,28 +68,36 @@ function ContactUsPage() {
     // FAQ items
     const faqs = [
         {
-            question: "How do I access my courses after payment?",
-            answer: "Once payment is confirmed, you'll receive login credentials via email and SMS. Access is instant for M-Pesa payments."
+            question: "How does Tusome work with slow or unstable internet connections?",
+            answer: "Tusome is specifically optimized for Kenya's internet conditions. Our lessons load quickly even on 2G networks, and you can adjust video quality. We recommend at least 500MB per month for regular use."
         },
         {
-            question: "Can I switch between different subscription plans?",
-            answer: "Yes! You can upgrade or downgrade your plan anytime. Changes take effect immediately, and we'll adjust billing accordingly."
+            question: "Can I use Tusome without a smartphone or computer?",
+            answer: "While we recommend smartphones or tablets for the best experience, Tusome works on any device with internet access, including basic phones with browsers and shared computers."
         },
         {
-            question: "Is content available offline?",
-            answer: "Yes, our mobile app allows you to download lessons for offline viewing. Perfect for areas with limited internet connectivity."
+            question: "How do I pay using M-Pesa and is it secure?",
+            answer: "Simply select M-Pesa during checkout and follow the prompts. Payment is instant and secure through Safaricom's encrypted system. We also accept Airtel Money and other mobile money services."
         },
         {
-            question: "Do you offer discounts for schools?",
-            answer: "Absolutely! We provide special rates for schools, institutions, and bulk registrations. Contact our partnerships team for details."
+            question: "Is Tusome content truly aligned with CBC curriculum?",
+            answer: "Yes! All content is created by certified Kenyan educators following KICD guidelines. We cover all 12 learning areas and competency-based assessments for Grades 4-12."
         },
         {
-            question: "How is Tusome aligned with CBC curriculum?",
-            answer: "All our content is created by certified Kenyan teachers and follows the official CBC curriculum guidelines from KICD."
+            question: "Can multiple children in my family use one account?",
+            answer: "Yes! Our family plans allow up to 4 children, with each child getting their own individual profile and personalized learning experience. Each student has separate progress tracking and grade-appropriate content."
         },
         {
-            question: "What payment methods do you accept?",
-            answer: "We accept M-Pesa, Airtel Money, bank transfers, and mobile banking. All major Kenyan payment methods are supported."
+            question: "What if I live in a rural area with limited connectivity?",
+            answer: "Tusome is designed for rural Kenya. Content loads quickly, uses minimal data, and key materials can be accessed during low-connectivity periods. We serve all 47 counties."
+        },
+        {
+            question: "How does Tusome help with CBC's continuous assessment approach?",
+            answer: "Our platform mirrors CBC's competency-based evaluation with interactive assessments, portfolio building, and progress tracking that aligns with your school's continuous assessment requirements."
+        },
+        {
+            question: "Can teachers use Tusome in schools without computer labs?",
+            answer: "Yes! Teachers can project lessons using smartphones and basic projectors. We provide special educator accounts with classroom management tools and teaching resources."
         }
     ];
 

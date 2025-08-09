@@ -257,9 +257,10 @@ function page() {
                         Affordable pricing designed specifically for Kenyan students following the CBC curriculum. Quality education that fits your family's budget.
                     </p>
 
-                    {/* Enhanced Period Selector */}
+                    {/* Enhanced Period Selector - Mobile Responsive */}
                     <div className="flex justify-center mb-12 transition-all duration-1000 delay-300">
-                        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-lg border border-green-100">
+                        {/* Desktop Version */}
+                        <div className="hidden sm:block bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-lg border border-green-100">
                             <Menubar className="border-0 bg-transparent">
                                 {periods.map((period) => (
                                     <MenubarMenu key={period}>
@@ -275,6 +276,26 @@ function page() {
                                     </MenubarMenu>
                                 ))}
                             </Menubar>
+                        </div>
+
+                        {/* Mobile Version */}
+                        <div className="sm:hidden w-full max-w-sm">
+                            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-2 shadow-lg border border-green-100">
+                                <div className="grid grid-cols-2 gap-2">
+                                    {periods.map((period) => (
+                                        <button
+                                            key={period}
+                                            onClick={() => setBillingPeriod(period)}
+                                            className={`px-4 py-3 font-semibold capitalize transition-all duration-300 rounded-xl text-sm
+                                                ${billingPeriod === period
+                                                    ? 'bg-green-600 text-white shadow-lg'
+                                                    : 'bg-transparent text-gray-600 hover:bg-green-50 hover:text-green-600'}`}
+                                        >
+                                            {period}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
