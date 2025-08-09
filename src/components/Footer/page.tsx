@@ -98,7 +98,7 @@ function page() {
                           </div>
                           <div className="flex items-center text-gray-400">
                               <span className="mr-2">Call:</span>
-                              <span className="font-semibold">+254 700 123 456</span>
+                              <span className="font-semibold">+254 797 233 957</span>
                           </div>
                       </div>
                   </div>
