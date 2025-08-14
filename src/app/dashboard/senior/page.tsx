@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react';
-import { Calculator, Book, Globe, Beaker, Crown, Microscope, Computer, Briefcase } from 'lucide-react';
+import { Calculator, Book, Globe, Beaker, Crown, Microscope, Computer, Briefcase, GraduationCap } from 'lucide-react';
 import DashboardHeader from '../components/DashboardHeader';
 import DashboardSidebar from '../components/DashboardSidebar';
 import DashboardMainContent from '../components/DashboardMainContent';
@@ -166,8 +166,8 @@ export default function SeniorDashboardPage() {
                                     Senior Secondary • Grade 10-12
                                 </span>
                             </div>
-                            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
-                                Mastering Advanced Concepts! 🎓
+                            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 flex items-center">
+                                Mastering Advanced Concepts! <GraduationCap className="h-5 w-5 ml-2 text-red-600" />
                             </h1>
                             <p className="text-sm sm:text-base text-gray-600">
                                 Specialized studies in Pure Sciences, Technical subjects, and Advanced Mathematics.

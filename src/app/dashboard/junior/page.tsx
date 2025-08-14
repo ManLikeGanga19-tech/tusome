@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react';
-import { Calculator, Book, Globe, Beaker, Palette, Crown, Users } from 'lucide-react';
+import { Calculator, Book, Globe, Beaker, Palette, Crown, Users, Rocket, Target } from 'lucide-react';
 import DashboardHeader from '../components/DashboardHeader';
 import DashboardSidebar from '../components/DashboardSidebar';
 import DashboardMainContent from '../components/DashboardMainContent';
@@ -158,8 +158,8 @@ export default function JuniorDashboardPage() {
                                     Junior Secondary • Grade 7-9
                                 </span>
                             </div>
-                            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
-                                Advancing Your Knowledge! 🚀
+                            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 flex items-center">
+                                Advancing Your Knowledge! <Rocket className="h-5 w-5 ml-2 text-green-600" />
                             </h1>
                             <p className="text-sm sm:text-base text-gray-600">
                                 Exploring advanced concepts in Science, Mathematics, and Languages.
@@ -168,7 +168,7 @@ export default function JuniorDashboardPage() {
                         </div>
                         <div className="hidden sm:block ml-4">
                             <div className="w-16 h-16 sm:w-20 sm:h-20 bg-green-200 rounded-full flex items-center justify-center">
-                                <Beaker className="h-8 w-8 sm:h-10 sm:w-10 text-green-600" />
+                                <Target className="h-8 w-8 sm:h-10 sm:w-10 text-green-600" />
                             </div>
                         </div>
                     </div>

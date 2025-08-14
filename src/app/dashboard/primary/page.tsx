@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react';
-import { Calculator, Book, Globe, TreePine, Palette, Users } from 'lucide-react';
+import { Calculator, Book, Globe, TreePine, Palette, Users, Zap } from 'lucide-react';
 import DashboardHeader from '../components/DashboardHeader';
 import DashboardSidebar from '../components/DashboardSidebar';
 import DashboardMainContent from '../components/DashboardMainContent';
@@ -150,8 +150,8 @@ export default function PrimaryDashboardPage() {
                                     Primary CBC • Grade 4-6
                                 </span>
                             </div>
-                            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
-                                Building Strong Foundations! 🌱
+                            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 flex items-center">
+                                Building Strong Foundations! <Zap className="h-5 w-5 ml-2 text-blue-600" />
                             </h1>
                             <p className="text-sm sm:text-base text-gray-600">
                                 Learning fundamentals in Mathematics, Languages, Science, and Creative Arts.

@@ -15,7 +15,8 @@ import {
     Beaker,
     Palette,
     Languages,
-    Wrench
+    Wrench,
+    Smile
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -111,20 +112,20 @@ export default function DashboardMainContent({ user, subjectProgress, upcomingLe
         <div className="space-y-6 sm:space-y-8">
             {/* Welcome Section */}
             <div className={`${tierColor === 'blue' ? 'bg-gradient-to-r from-blue-50 to-blue-100' :
-                    tierColor === 'green' ? 'bg-gradient-to-r from-green-50 to-green-100' :
-                        'bg-gradient-to-r from-red-50 to-red-100'
+                tierColor === 'green' ? 'bg-gradient-to-r from-green-50 to-green-100' :
+                    'bg-gradient-to-r from-red-50 to-red-100'
                 } rounded-xl p-4 sm:p-6`}>
                 <div className="flex items-center justify-between">
                     <div className="flex-1">
-                        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
-                            Welcome back, {user.name.split(' ')[0]}! 👋
+                        <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 flex items-center">
+                            Welcome back, {user.name.split(' ')[0]}! <Smile className="h-5 w-5 ml-2 text-yellow-500" />
                         </h1>
                         <p className="text-sm sm:text-base text-gray-600 mb-4">
                             Ready to continue your {user.subscription} journey? You have {upcomingLessons.length} lessons waiting.
                         </p>
                         <Button className={`${tierColor === 'blue' ? 'bg-blue-600 hover:bg-blue-700' :
-                                tierColor === 'green' ? 'bg-green-600 hover:bg-green-700' :
-                                    'bg-red-600 hover:bg-red-700'
+                            tierColor === 'green' ? 'bg-green-600 hover:bg-green-700' :
+                                'bg-red-600 hover:bg-red-700'
                             } text-white text-sm sm:text-base h-9 sm:h-10`}>
                             Continue Learning
                             <ChevronRight className="h-4 w-4 ml-2" />
@@ -132,12 +133,12 @@ export default function DashboardMainContent({ user, subjectProgress, upcomingLe
                     </div>
                     <div className="hidden sm:block ml-4">
                         <div className={`w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 ${tierColor === 'blue' ? 'bg-blue-200' :
-                                tierColor === 'green' ? 'bg-green-200' :
-                                    'bg-red-200'
+                            tierColor === 'green' ? 'bg-green-200' :
+                                'bg-red-200'
                             } rounded-full flex items-center justify-center`}>
                             <BookOpen className={`h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 ${tierColor === 'blue' ? 'text-blue-600' :
-                                    tierColor === 'green' ? 'text-green-600' :
-                                        'text-red-600'
+                                tierColor === 'green' ? 'text-green-600' :
+                                    'text-red-600'
                                 }`} />
                         </div>
                     </div>
@@ -161,12 +162,12 @@ export default function DashboardMainContent({ user, subjectProgress, upcomingLe
                                 <div className="flex items-center justify-between mb-3 sm:mb-4">
                                     <div className="flex items-center space-x-2 sm:space-x-3">
                                         <div className={`w-8 h-8 sm:w-10 sm:h-10 ${tierColor === 'blue' ? 'bg-blue-100' :
-                                                tierColor === 'green' ? 'bg-green-100' :
-                                                    'bg-red-100'
+                                            tierColor === 'green' ? 'bg-green-100' :
+                                                'bg-red-100'
                                             } rounded-lg flex items-center justify-center`}>
                                             <subject.icon className={`h-4 w-4 sm:h-5 sm:w-5 ${tierColor === 'blue' ? 'text-blue-600' :
-                                                    tierColor === 'green' ? 'text-green-600' :
-                                                        'text-red-600'
+                                                tierColor === 'green' ? 'text-green-600' :
+                                                    'text-red-600'
                                                 }`} />
                                         </div>
                                         <div className="min-w-0 flex-1">
@@ -187,16 +188,16 @@ export default function DashboardMainContent({ user, subjectProgress, upcomingLe
                                     </div>
 
                                     <div className={`${tierColor === 'blue' ? 'bg-blue-50' :
-                                            tierColor === 'green' ? 'bg-green-50' :
-                                                'bg-red-50'
+                                        tierColor === 'green' ? 'bg-green-50' :
+                                            'bg-red-50'
                                         } rounded-lg p-2 sm:p-3`}>
                                         <p className="text-xs sm:text-sm font-medium text-gray-900 mb-1">Next Lesson</p>
                                         <p className="text-xs text-gray-600">{subject.nextLesson}</p>
                                     </div>
 
                                     <Button className={`w-full ${tierColor === 'blue' ? 'bg-blue-600 hover:bg-blue-700' :
-                                            tierColor === 'green' ? 'bg-green-600 hover:bg-green-700' :
-                                                'bg-red-600 hover:bg-red-700'
+                                        tierColor === 'green' ? 'bg-green-600 hover:bg-green-700' :
+                                            'bg-red-600 hover:bg-red-700'
                                         } text-white text-xs sm:text-sm h-8 sm:h-9`} size="sm">
                                         <Play className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
                                         Continue
@@ -219,12 +220,12 @@ export default function DashboardMainContent({ user, subjectProgress, upcomingLe
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
                                         <div className={`w-10 h-10 sm:w-12 sm:h-12 ${tierColor === 'blue' ? 'bg-blue-100' :
-                                                tierColor === 'green' ? 'bg-green-100' :
-                                                    'bg-red-100'
+                                            tierColor === 'green' ? 'bg-green-100' :
+                                                'bg-red-100'
                                             } rounded-lg flex items-center justify-center flex-shrink-0`}>
                                             <Play className={`h-5 w-5 sm:h-6 sm:w-6 ${tierColor === 'blue' ? 'text-blue-600' :
-                                                    tierColor === 'green' ? 'text-green-600' :
-                                                        'text-red-600'
+                                                tierColor === 'green' ? 'text-green-600' :
+                                                    'text-red-600'
                                                 }`} />
                                         </div>
                                         <div className="min-w-0 flex-1">
@@ -240,8 +241,8 @@ export default function DashboardMainContent({ user, subjectProgress, upcomingLe
                                         </div>
                                     </div>
                                     <Button className={`${tierColor === 'blue' ? 'bg-blue-600 hover:bg-blue-700' :
-                                            tierColor === 'green' ? 'bg-green-600 hover:bg-green-700' :
-                                                'bg-red-600 hover:bg-red-700'
+                                        tierColor === 'green' ? 'bg-green-600 hover:bg-green-700' :
+                                            'bg-red-600 hover:bg-red-700'
                                         } text-white text-xs sm:text-sm h-8 sm:h-10 px-3 sm:px-4 ml-3 flex-shrink-0`}>
                                         <span className="hidden sm:inline">Join Lesson</span>
                                         <span className="sm:hidden">Join</span>
