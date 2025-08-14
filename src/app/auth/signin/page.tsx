@@ -1,7 +1,7 @@
 'use client'
 
-import { BookOpen, Eye, EyeOff, Mail, Lock, ArrowRight, CheckCircle2, Users, BookMarked, Trophy } from 'lucide-react';
-import React, { useState } from 'react'
+import { BookOpen, Eye, EyeOff, Mail, Lock, ArrowRight, CheckCircle2, Users, BookMarked, Trophy, GraduationCap, Shield } from 'lucide-react';
+import React, { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,11 +13,30 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+
+// Grade mapping for display purposes
+const getGradeDisplayInfo = (gradeLevel: string) => {
+  const gradeMap: Record<string, { label: string; tier: string; category: string; color: string }> = {
+    'grade-4': { label: 'Grade 4', tier: 'Primary CBC', category: 'primary', color: 'blue' },
+    'grade-5': { label: 'Grade 5', tier: 'Primary CBC', category: 'primary', color: 'blue' },
+    'grade-6': { label: 'Grade 6', tier: 'Primary CBC', category: 'primary', color: 'blue' },
+    'grade-7': { label: 'Grade 7', tier: 'Junior Secondary', category: 'junior', color: 'green' },
+    'grade-8': { label: 'Grade 8', tier: 'Junior Secondary', category: 'junior', color: 'green' },
+    'grade-9': { label: 'Grade 9', tier: 'Junior Secondary', category: 'junior', color: 'green' },
+    'grade-10': { label: 'Grade 10', tier: 'Senior Secondary', category: 'senior', color: 'red' },
+    'grade-11': { label: 'Grade 11', tier: 'Senior Secondary', category: 'senior', color: 'red' },
+    'grade-12': { label: 'Grade 12', tier: 'Senior Secondary', category: 'senior', color: 'red' },
+  };
+
+  return gradeMap[gradeLevel] || null;
+};
 
 function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [userGradeInfo, setUserGradeInfo] = useState<any>(null);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -33,6 +52,46 @@ function SignInPage() {
     if (error) setError('');
   };
 
+  // Fetch user grade info when email changes (simulate backend call)
+  useEffect(() => {
+    const fetchUserGradeInfo = async () => {
+      if (formData.email && formData.email.includes('@')) {
+        // Simulate API call to fetch user's grade info
+        // In real implementation, this would be:
+        // const response = await fetch(`/api/users/grade-info?email=${formData.email}`);
+        // const gradeData = await response.json();
+
+        // For demo purposes, simulate different users
+        const mockUserData: Record<string, { gradeLevel: string; studentName: string }> = {
+          'test@gmail.com': { gradeLevel: 'grade-8', studentName: 'Test Student' },
+          'john.doe@example.com': { gradeLevel: 'grade-10', studentName: 'John Doe' },
+          'grace.m@student.ke': { gradeLevel: 'grade-12', studentName: 'Grace Mwangi' },
+          'peter.k@student.ke': { gradeLevel: 'grade-6', studentName: 'Peter Kiprotich' },
+        };
+
+        const userData = mockUserData[formData.email.toLowerCase()];
+        if (userData) {
+          const gradeInfo = getGradeDisplayInfo(userData.gradeLevel);
+          if (gradeInfo) {
+            setUserGradeInfo({
+              ...gradeInfo,
+              studentName: userData.studentName,
+              gradeLevel: userData.gradeLevel
+            });
+          }
+        } else {
+          setUserGradeInfo(null);
+        }
+      } else {
+        setUserGradeInfo(null);
+      }
+    };
+
+    // Debounce the API call
+    const timeoutId = setTimeout(fetchUserGradeInfo, 500);
+    return () => clearTimeout(timeoutId);
+  }, [formData.email]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -42,20 +101,35 @@ function SignInPage() {
     setTimeout(() => {
       setIsLoading(false);
 
-      // Check credentials
-      if (formData.email === 'test@gmail.com' && formData.password === 'test123') {
-        console.log('Login successful:', formData);
+      // Check credentials with grade-specific validation
+      const validCredentials = [
+        { email: 'test@gmail.com', password: 'test123' },
+        { email: 'john.doe@example.com', password: 'password123' },
+        { email: 'grace.m@student.ke', password: 'grace2024' },
+        { email: 'peter.k@student.ke', password: 'peter123' },
+      ];
 
-        // Redirect to dashboard
-        window.location.href = '/dashboard';
+      const user = validCredentials.find(
+        cred => cred.email === formData.email && cred.password === formData.password
+      );
 
-        // Alternative using Next.js router (if using Next.js):
-        // import { useRouter } from 'next/navigation';
-        // const router = useRouter();
-        // router.push('/dashboard');
+      if (user && userGradeInfo) {
+        console.log('Login successful:', {
+          ...formData,
+          gradeInfo: userGradeInfo
+        });
 
+        // Redirect to grade-specific dashboard
+        const dashboardPath = `/dashboard/${userGradeInfo.category}`;
+        window.location.href = dashboardPath;
+
+        // Alternative using Next.js router:
+        // router.push(dashboardPath);
+
+      } else if (!userGradeInfo) {
+        setError('Email not found. Please check your email or sign up first.');
       } else {
-        setError('Invalid email or password. Try: test@gmail.com / test123');
+        setError('Invalid password. Please try again.');
       }
     }, 2000);
   };
@@ -65,11 +139,17 @@ function SignInPage() {
     window.location.href = '/auth/forgot-password';
   };
 
-  // Demo credentials filler
-  const fillDemoCredentials = () => {
+  // Demo credentials filler with different users
+  const fillDemoCredentials = (userType: 'junior' | 'senior' | 'primary' = 'junior') => {
+    const demoUsers = {
+      junior: { email: 'test@gmail.com', password: 'test123' },
+      senior: { email: 'grace.m@student.ke', password: 'grace2024' },
+      primary: { email: 'peter.k@student.ke', password: 'peter123' }
+    };
+
     setFormData({
-      email: 'test@gmail.com',
-      password: 'test123',
+      email: demoUsers[userType].email,
+      password: demoUsers[userType].password,
       rememberMe: false
     });
   };
@@ -172,20 +252,37 @@ function SignInPage() {
             <CardContent className="space-y-6">
               {/* Demo Credentials Banner */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-blue-900">Demo Credentials</p>
-                    <p className="text-xs text-blue-700">test@gmail.com / test123</p>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-blue-900">Demo Accounts</p>
+                  <div className="grid grid-cols-3 gap-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => fillDemoCredentials('primary')}
+                      className="text-xs py-1 h-auto"
+                    >
+                      Primary
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => fillDemoCredentials('junior')}
+                      className="text-xs py-1 h-auto"
+                    >
+                      Junior
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => fillDemoCredentials('senior')}
+                      className="text-xs py-1 h-auto"
+                    >
+                      Senior
+                    </Button>
                   </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={fillDemoCredentials}
-                    className="text-xs"
-                  >
-                    Use Demo
-                  </Button>
                 </div>
               </div>
 
@@ -208,6 +305,45 @@ function SignInPage() {
                     />
                   </div>
                 </div>
+
+                {/* Grade Level Display - Shows when user is found */}
+                {userGradeInfo && (
+                  <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-4 border border-green-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <GraduationCap className="h-4 w-4 text-green-600" />
+                        <span className="text-sm font-medium text-gray-900">Student Account</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <Shield className="h-3 w-3 text-green-600" />
+                        <span className="text-xs text-green-600">Verified</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Grade Level:</span>
+                        <Badge className={`text-xs ${userGradeInfo.color === 'green' ? 'bg-green-100 text-green-800' :
+                            userGradeInfo.color === 'red' ? 'bg-red-100 text-red-800' :
+                              'bg-blue-100 text-blue-800'
+                          }`}>
+                          {userGradeInfo.label}
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Program:</span>
+                        <span className="text-sm font-medium text-gray-900">{userGradeInfo.tier}</span>
+                      </div>
+
+                      <div className="pt-1 border-t border-green-100">
+                        <p className="text-xs text-gray-500">
+                          Welcome back, {userGradeInfo.studentName}! Your content is personalized for {userGradeInfo.label}.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Password */}
                 <div className="space-y-2">
@@ -278,7 +414,9 @@ function SignInPage() {
                     </div>
                   ) : (
                     <div className="flex items-center justify-center space-x-2">
-                      <span className="relative z-10">Sign In</span>
+                      <span className="relative z-10">
+                        {userGradeInfo ? `Access ${userGradeInfo.tier}` : 'Sign In'}
+                      </span>
                       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </div>
                   )}
