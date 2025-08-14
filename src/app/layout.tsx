@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import ConditionalLayout from '@/components/ConditionalLayout';
+import { AuthProvider } from '../../server/lib/api/auth';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -211,9 +212,11 @@ export default function RootLayout({
           Skip to main content
         </a>
 
-        <ConditionalLayout>
-          {children}
-        </ConditionalLayout>
+        <AuthProvider>
+          <ConditionalLayout>
+            {children}
+          </ConditionalLayout>
+        </AuthProvider>
 
         {/* Analytics and tracking scripts can be added here */}
         {process.env.NODE_ENV === 'production' && (

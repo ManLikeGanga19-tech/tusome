@@ -1,11 +1,14 @@
+// pages/auth/signup.tsx - Updated signup component with backend integration
 'use client'
 
-import { BookOpen, Eye, EyeOff, Mail, User, Lock, ArrowRight, CheckCircle2, GraduationCap } from 'lucide-react';
-import React, { useState } from 'react'
+import { BookOpen, Eye, EyeOff, Mail, User, Lock, ArrowRight, CheckCircle2, GraduationCap, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Select,
   SelectContent,
@@ -29,6 +32,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
+import { useSignupForm, useAuth } from '../../../../server/lib/api/auth';
 
 // Grade options mapped to your pricing structure
 const gradeOptions = [
@@ -39,14 +43,14 @@ const gradeOptions = [
     tier: "Primary CBC"
   },
   {
-    value: "grade-5", 
+    value: "grade-5",
     label: "Grade 5",
     category: "primary",
     tier: "Primary CBC"
   },
   {
     value: "grade-6",
-    label: "Grade 6", 
+    label: "Grade 6",
     category: "primary",
     tier: "Primary CBC"
   },
@@ -59,7 +63,7 @@ const gradeOptions = [
   {
     value: "grade-8",
     label: "Grade 8",
-    category: "junior", 
+    category: "junior",
     tier: "Junior Secondary"
   },
   {
@@ -94,18 +98,18 @@ const getPricingInfo = (gradeValue: string) => {
   if (!grade) return null;
 
   const pricingMap = {
-    primary: { 
-      monthly: "KSh 499/month", 
+    primary: {
+      monthly: "KSh 499/month",
       subjects: "Mathematics, English, Kiswahili, Environmental Studies",
       color: "blue"
     },
-    junior: { 
-      monthly: "KSh 899/month", 
+    junior: {
+      monthly: "KSh 899/month",
       subjects: "Mathematics, English, Kiswahili, Integrated Science, Social Studies",
       color: "green"
     },
-    senior: { 
-      monthly: "KSh 1,499/month", 
+    senior: {
+      monthly: "KSh 1,499/month",
       subjects: "Core & Optional subjects, KCSE preparation",
       color: "red"
     }
@@ -118,51 +122,47 @@ const getPricingInfo = (gradeValue: string) => {
 };
 
 function SignUpPage() {
+  const router = useRouter();
+  const { user } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    grade: '',
-    password: '',
-    confirmPassword: '',
-    agreeTerms: false
-  });
+  const [successMessage, setSuccessMessage] = useState('');
 
-  const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
+  const {
+    formData,
+    fieldErrors,
+    loading,
+    error,
+    handleInputChange,
+    handleSubmit,
+    clearError,
+  } = useSignupForm();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (user) {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
 
-    // Get the selected grade info for backend
-    const selectedGrade = gradeOptions.find(g => g.value === formData.grade);
-    const registrationData = {
-      ...formData,
-      gradeLevel: selectedGrade?.value,
-      gradeTier: selectedGrade?.tier,
-      gradeCategory: selectedGrade?.category
-    };
-
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      console.log('Registration data:', registrationData);
-    }, 2000);
+  const onSubmit = async (e: React.FormEvent) => {
+    try {
+      await handleSubmit(e);
+      // If successful, show success message and redirect
+      setSuccessMessage('Account created successfully! Redirecting to your dashboard...');
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 2000);
+    } catch (error) {
+      // Error is handled by the hook
+    }
   };
 
   const selectedPricing = formData.grade ? getPricingInfo(formData.grade) : null;
 
   const benefits = [
     "Low data usage - optimized for slow internet connections",
-    "CBC curriculum aligned content in English & Kiswahili", 
+    "CBC curriculum aligned content in English & Kiswahili",
     "Affordable pricing with M-Pesa payment options",
     "Works on any device - smartphones, tablets, or computers"
   ];
@@ -233,7 +233,35 @@ function SignUpPage() {
             </CardHeader>
 
             <CardContent className="space-y-6">
-              <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Success Message */}
+              {successMessage && (
+                <Alert className="bg-green-50 border-green-200">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
+                    {successMessage}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Error Message */}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {error}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearError}
+                      className="ml-2 h-auto p-0 text-red-600 hover:text-red-700"
+                    >
+                      Dismiss
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <form onSubmit={onSubmit} className="space-y-4">
                 {/* Name Fields */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -248,10 +276,14 @@ function SignUpPage() {
                         placeholder="John"
                         value={formData.firstName}
                         onChange={(e) => handleInputChange('firstName', e.target.value)}
-                        className="pl-10 border-gray-200 focus:border-green-500 focus:ring-green-500"
+                        className={`pl-10 border-gray-200 focus:border-green-500 focus:ring-green-500 ${fieldErrors.firstName ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''
+                          }`}
                         required
                       />
                     </div>
+                    {fieldErrors.firstName && (
+                      <p className="text-sm text-red-600">{fieldErrors.firstName}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -266,10 +298,14 @@ function SignUpPage() {
                         placeholder="Doe"
                         value={formData.lastName}
                         onChange={(e) => handleInputChange('lastName', e.target.value)}
-                        className="pl-10 border-gray-200 focus:border-green-500 focus:ring-green-500"
+                        className={`pl-10 border-gray-200 focus:border-green-500 focus:ring-green-500 ${fieldErrors.lastName ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''
+                          }`}
                         required
                       />
                     </div>
+                    {fieldErrors.lastName && (
+                      <p className="text-sm text-red-600">{fieldErrors.lastName}</p>
+                    )}
                   </div>
                 </div>
 
@@ -286,10 +322,14 @@ function SignUpPage() {
                       placeholder="john.doe@example.com"
                       value={formData.email}
                       onChange={(e) => handleInputChange('email', e.target.value)}
-                      className="pl-10 border-gray-200 focus:border-green-500 focus:ring-green-500"
+                      className={`pl-10 border-gray-200 focus:border-green-500 focus:ring-green-500 ${fieldErrors.email ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''
+                        }`}
                       required
                     />
                   </div>
+                  {fieldErrors.email && (
+                    <p className="text-sm text-red-600">{fieldErrors.email}</p>
+                  )}
                 </div>
 
                 {/* Grade Selection */}
@@ -300,7 +340,8 @@ function SignUpPage() {
                   <div className="relative">
                     <GraduationCap className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 z-10" />
                     <Select value={formData.grade} onValueChange={(value) => handleInputChange('grade', value)}>
-                      <SelectTrigger className="pl-10 border-gray-200 focus:border-green-500 focus:ring-green-500">
+                      <SelectTrigger className={`pl-10 border-gray-200 focus:border-green-500 focus:ring-green-500 ${fieldErrors.grade ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''
+                        }`}>
                         <SelectValue placeholder="Select your current grade" />
                       </SelectTrigger>
                       <SelectContent>
@@ -336,6 +377,9 @@ function SignUpPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                  {fieldErrors.grade && (
+                    <p className="text-sm text-red-600">{fieldErrors.grade}</p>
+                  )}
                 </div>
 
                 {/* Pricing Preview */}
@@ -343,11 +387,10 @@ function SignUpPage() {
                   <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-4 border border-green-100">
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-sm font-semibold text-gray-900">{selectedPricing.tier}</h4>
-                      <Badge className={`text-xs ${
-                        selectedPricing.color === 'green' ? 'bg-green-100 text-green-800' :
-                        selectedPricing.color === 'red' ? 'bg-red-100 text-red-800' :
-                        'bg-blue-100 text-blue-800'
-                      }`}>
+                      <Badge className={`text-xs ${selectedPricing.color === 'green' ? 'bg-green-100 text-green-800' :
+                          selectedPricing.color === 'red' ? 'bg-red-100 text-red-800' :
+                            'bg-blue-100 text-blue-800'
+                        }`}>
                         {selectedPricing.monthly}
                       </Badge>
                     </div>
@@ -369,7 +412,8 @@ function SignUpPage() {
                       placeholder="Create a strong password"
                       value={formData.password}
                       onChange={(e) => handleInputChange('password', e.target.value)}
-                      className="pl-10 pr-10 border-gray-200 focus:border-green-500 focus:ring-green-500"
+                      className={`pl-10 pr-10 border-gray-200 focus:border-green-500 focus:ring-green-500 ${fieldErrors.password ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''
+                        }`}
                       required
                     />
                     <button
@@ -380,6 +424,9 @@ function SignUpPage() {
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                  {fieldErrors.password && (
+                    <p className="text-sm text-red-600">{fieldErrors.password}</p>
+                  )}
                 </div>
 
                 {/* Confirm Password */}
@@ -395,7 +442,8 @@ function SignUpPage() {
                       placeholder="Confirm your password"
                       value={formData.confirmPassword}
                       onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                      className="pl-10 pr-10 border-gray-200 focus:border-green-500 focus:ring-green-500"
+                      className={`pl-10 pr-10 border-gray-200 focus:border-green-500 focus:ring-green-500 ${fieldErrors.confirmPassword ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''
+                        }`}
                       required
                     />
                     <button
@@ -406,123 +454,132 @@ function SignUpPage() {
                       {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                  {fieldErrors.confirmPassword && (
+                    <p className="text-sm text-red-600">{fieldErrors.confirmPassword}</p>
+                  )}
                 </div>
 
                 {/* Terms Checkbox */}
-                <div className="flex items-center space-x-2 pt-2">
+                <div className="flex items-start space-x-2 pt-2">
                   <Checkbox
                     id="terms"
                     checked={formData.agreeTerms}
                     onCheckedChange={(checked) => handleInputChange('agreeTerms', checked as boolean)}
-                    className="border-gray-300 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                    className={`border-gray-300 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 mt-1 ${fieldErrors.agreeTerms ? 'border-red-300' : ''
+                      }`}
                   />
-                  <Label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
-                    I agree to the{' '}
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <button type="button" className="text-green-600 hover:text-green-700 underline">
-                          Terms of Service
-                        </button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>Terms of Service</DialogTitle>
-                          <DialogDescription>
-                            Please read our terms of service carefully.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="mt-4 space-y-4 text-sm">
-                          <h3 className="font-semibold text-base">1. Acceptance of Terms</h3>
-                          <p>By accessing and using Tusome's educational platform, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.</p>
+                  <div className="space-y-1">
+                    <Label htmlFor="terms" className="text-sm text-gray-600 leading-relaxed">
+                      I agree to the{' '}
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <button type="button" className="text-green-600 hover:text-green-700 underline">
+                            Terms of Service
+                          </button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle>Terms of Service</DialogTitle>
+                            <DialogDescription>
+                              Please read our terms of service carefully.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="mt-4 space-y-4 text-sm">
+                            <h3 className="font-semibold text-base">1. Acceptance of Terms</h3>
+                            <p>By accessing and using Tusome's educational platform, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.</p>
 
-                          <h3 className="font-semibold text-base">2. Service Description</h3>
-                          <p>Tusome provides online educational content aligned with the Kenyan CBC curriculum, optimized for local internet conditions and accessible via M-Pesa payments.</p>
+                            <h3 className="font-semibold text-base">2. Service Description</h3>
+                            <p>Tusome provides online educational content aligned with the Kenyan CBC curriculum, optimized for local internet conditions and accessible via M-Pesa payments.</p>
 
-                          <h3 className="font-semibold text-base">3. User Responsibilities</h3>
-                          <p>Users are responsible for maintaining the confidentiality of their account credentials and for all activities that occur under their account.</p>
+                            <h3 className="font-semibold text-base">3. User Responsibilities</h3>
+                            <p>Users are responsible for maintaining the confidentiality of their account credentials and for all activities that occur under their account.</p>
 
-                          <h3 className="font-semibold text-base">4. Payment Terms</h3>
-                          <p>All payments are processed through M-Pesa and other approved payment methods. Subscription fees are non-refundable except as required by law.</p>
+                            <h3 className="font-semibold text-base">4. Payment Terms</h3>
+                            <p>All payments are processed through M-Pesa and other approved payment methods. Subscription fees are non-refundable except as required by law.</p>
 
-                          <h3 className="font-semibold text-base">5. Content Usage</h3>
-                          <p>All educational content is protected by intellectual property rights. Users may access content for personal educational use only.</p>
+                            <h3 className="font-semibold text-base">5. Content Usage</h3>
+                            <p>All educational content is protected by intellectual property rights. Users may access content for personal educational use only.</p>
 
-                          <h3 className="font-semibold text-base">6. Limitation of Liability</h3>
-                          <p>Tusome's liability is limited to the amount paid by the user for the service. We are not liable for any indirect or consequential damages.</p>
+                            <h3 className="font-semibold text-base">6. Limitation of Liability</h3>
+                            <p>Tusome's liability is limited to the amount paid by the user for the service. We are not liable for any indirect or consequential damages.</p>
 
-                          <h3 className="font-semibold text-base">7. Termination</h3>
-                          <p>Either party may terminate the service agreement at any time. Upon termination, access to the platform will be revoked.</p>
+                            <h3 className="font-semibold text-base">7. Termination</h3>
+                            <p>Either party may terminate the service agreement at any time. Upon termination, access to the platform will be revoked.</p>
 
-                          <h3 className="font-semibold text-base">8. Governing Law</h3>
-                          <p>These terms are governed by the laws of Kenya. Any disputes shall be resolved in Kenyan courts.</p>
+                            <h3 className="font-semibold text-base">8. Governing Law</h3>
+                            <p>These terms are governed by the laws of Kenya. Any disputes shall be resolved in Kenyan courts.</p>
 
-                          <h3 className="font-semibold text-base">9. Changes to Terms</h3>
-                          <p>Tusome reserves the right to modify these terms at any time. Users will be notified of significant changes.</p>
+                            <h3 className="font-semibold text-base">9. Changes to Terms</h3>
+                            <p>Tusome reserves the right to modify these terms at any time. Users will be notified of significant changes.</p>
 
-                          <p className="text-gray-600 text-xs mt-6">Last updated: January 2025</p>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                    {' '}and{' '}
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <button type="button" className="text-green-600 hover:text-green-700 underline">
-                          Privacy Policy
-                        </button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>Privacy Policy</DialogTitle>
-                          <DialogDescription>
-                            Learn how we collect, use, and protect your personal information.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="mt-4 space-y-4 text-sm">
-                          <h3 className="font-semibold text-base">1. Information We Collect</h3>
-                          <p>We collect personal information including name, email address, phone number for M-Pesa transactions, and educational progress data to provide our services effectively.</p>
+                            <p className="text-gray-600 text-xs mt-6">Last updated: January 2025</p>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                      {' '}and{' '}
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <button type="button" className="text-green-600 hover:text-green-700 underline">
+                            Privacy Policy
+                          </button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                          <DialogHeader>
+                            <DialogTitle>Privacy Policy</DialogTitle>
+                            <DialogDescription>
+                              Learn how we collect, use, and protect your personal information.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="mt-4 space-y-4 text-sm">
+                            <h3 className="font-semibold text-base">1. Information We Collect</h3>
+                            <p>We collect personal information including name, email address, phone number for M-Pesa transactions, and educational progress data to provide our services effectively.</p>
 
-                          <h3 className="font-semibold text-base">2. How We Use Your Information</h3>
-                          <p>Your information is used to provide educational services, process payments, track learning progress, and communicate important updates about your account.</p>
+                            <h3 className="font-semibold text-base">2. How We Use Your Information</h3>
+                            <p>Your information is used to provide educational services, process payments, track learning progress, and communicate important updates about your account.</p>
 
-                          <h3 className="font-semibold text-base">3. Data Protection</h3>
-                          <p>We implement industry-standard security measures to protect your personal information. All payment data is encrypted and processed securely through approved payment gateways.</p>
+                            <h3 className="font-semibold text-base">3. Data Protection</h3>
+                            <p>We implement industry-standard security measures to protect your personal information. All payment data is encrypted and processed securely through approved payment gateways.</p>
 
-                          <h3 className="font-semibold text-base">4. Information Sharing</h3>
-                          <p>We do not sell, trade, or share your personal information with third parties except as necessary to provide our services (such as payment processing) or as required by law.</p>
+                            <h3 className="font-semibold text-base">4. Information Sharing</h3>
+                            <p>We do not sell, trade, or share your personal information with third parties except as necessary to provide our services (such as payment processing) or as required by law.</p>
 
-                          <h3 className="font-semibold text-base">5. M-Pesa and Payment Data</h3>
-                          <p>Payment information including M-Pesa transaction details are processed through secure, PCI-compliant payment processors. We do not store complete payment card details.</p>
+                            <h3 className="font-semibold text-base">5. M-Pesa and Payment Data</h3>
+                            <p>Payment information including M-Pesa transaction details are processed through secure, PCI-compliant payment processors. We do not store complete payment card details.</p>
 
-                          <h3 className="font-semibold text-base">6. Educational Records</h3>
-                          <p>Your learning progress, quiz scores, and educational achievements are stored to provide personalized learning experiences and track your academic progress.</p>
+                            <h3 className="font-semibold text-base">6. Educational Records</h3>
+                            <p>Your learning progress, quiz scores, and educational achievements are stored to provide personalized learning experiences and track your academic progress.</p>
 
-                          <h3 className="font-semibold text-base">7. Cookies and Tracking</h3>
-                          <p>We use cookies and similar technologies to improve your experience, remember your preferences, and analyze platform usage to enhance our services.</p>
+                            <h3 className="font-semibold text-base">7. Cookies and Tracking</h3>
+                            <p>We use cookies and similar technologies to improve your experience, remember your preferences, and analyze platform usage to enhance our services.</p>
 
-                          <h3 className="font-semibold text-base">8. Your Rights</h3>
-                          <p>You have the right to access, correct, or delete your personal information. You may also opt-out of marketing communications at any time.</p>
+                            <h3 className="font-semibold text-base">8. Your Rights</h3>
+                            <p>You have the right to access, correct, or delete your personal information. You may also opt-out of marketing communications at any time.</p>
 
-                          <h3 className="font-semibold text-base">9. Data Retention</h3>
-                          <p>We retain your information as long as your account is active or as needed to provide services. Educational records may be retained for academic continuity.</p>
+                            <h3 className="font-semibold text-base">9. Data Retention</h3>
+                            <p>We retain your information as long as your account is active or as needed to provide services. Educational records may be retained for academic continuity.</p>
 
-                          <h3 className="font-semibold text-base">10. Contact Us</h3>
-                          <p>For privacy concerns or questions, please contact us at privacy@tusome.ke or through our customer support channels.</p>
+                            <h3 className="font-semibold text-base">10. Contact Us</h3>
+                            <p>For privacy concerns or questions, please contact us at privacy@tusome.ke or through our customer support channels.</p>
 
-                          <p className="text-gray-600 text-xs mt-6">Last updated: January 2025</p>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </Label>
+                            <p className="text-gray-600 text-xs mt-6">Last updated: January 2025</p>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
+                    </Label>
+                    {fieldErrors.agreeTerms && (
+                      <p className="text-sm text-red-600">{fieldErrors.agreeTerms}</p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Submit Button */}
                 <Button
                   type="submit"
-                  disabled={isLoading || !formData.agreeTerms || !formData.grade}
+                  disabled={loading || !formData.agreeTerms || !formData.grade}
                   className="w-full bg-green-600 text-white py-3 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 font-semibold relative overflow-hidden group"
                   size="lg"
                 >
-                  {isLoading ? (
+                  {loading ? (
                     <div className="flex items-center justify-center space-x-2">
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       <span>Creating Account...</span>
