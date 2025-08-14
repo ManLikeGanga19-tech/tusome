@@ -9,10 +9,21 @@ import {
     Wifi,
     Battery,
     X,
-    Menu
+    Menu,
+    LogOut,
+    User,
+    ChevronDown
 } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface User {
     name: string;
@@ -79,6 +90,40 @@ export default function DashboardHeader({ user, onSearch }: HeaderProps) {
         }
     };
 
+    const getTierBadgeColor = (tier: string) => {
+        switch (tier) {
+            case 'primary': return 'bg-blue-100 text-blue-800';
+            case 'junior': return 'bg-green-100 text-green-800';
+            case 'senior': return 'bg-red-100 text-red-800';
+            default: return 'bg-green-100 text-green-800';
+        }
+    };
+
+    const handleAccountSettings = () => {
+        // Navigate to account settings page
+        window.location.href = '/dashboard/settings';
+        // Or with Next.js router: router.push('/dashboard/settings');
+    };
+
+    const handlePreferences = () => {
+        // Navigate to preferences page
+        window.location.href = '/dashboard/preferences';
+        // Or with Next.js router: router.push('/dashboard/preferences');
+    };
+
+    const handleLogout = () => {
+        // Clear authentication data
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('userGradeCategory');
+            localStorage.removeItem('authToken');
+            // Clear any other stored user data
+        }
+
+        // Redirect to login page
+        window.location.href = '/auth/signin';
+        // Or with Next.js router: router.push('/auth/signin');
+    };
+
     return (
         <header className="bg-white shadow-sm border-b sticky top-0 z-50">
             <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
@@ -140,33 +185,101 @@ export default function DashboardHeader({ user, onSearch }: HeaderProps) {
                             </Button>
                         </div>
 
-                        {/* Settings - Hidden on mobile */}
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="hidden sm:flex p-2 hover:bg-gray-100 rounded-full"
-                        >
-                            <Settings className="h-5 w-5 text-gray-600" />
-                        </Button>
 
-                        {/* User Profile */}
-                        <div className="flex items-center space-x-2 sm:space-x-3">
-                            {/* User info - Hidden on mobile */}
-                            <div className="text-right hidden lg:block">
-                                <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                                <p className="text-xs text-gray-500">{user.subscription}</p>
-                            </div>
 
-                            {/* Avatar */}
-                            <Button
-                                variant="ghost"
-                                className={`h-8 w-8 sm:h-9 sm:w-9 ${getTierColor(user.tier)} ${getTierColorHover(user.tier)} rounded-full flex items-center justify-center flex-shrink-0 p-0 transition-all duration-200 hover:scale-105`}
-                            >
-                                <span className="text-white text-xs sm:text-sm font-medium">
-                                    {user.name.split(' ').map(n => n[0]).join('')}
-                                </span>
-                            </Button>
-                        </div>
+                        {/* User Profile Dropdown */}
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    className="flex items-center space-x-2 sm:space-x-3 hover:bg-gray-50 rounded-lg px-2 sm:px-3 py-2 transition-colors"
+                                >
+                                    {/* User info - Hidden on mobile */}
+                                    <div className="text-right hidden lg:block">
+                                        <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                                        <p className="text-xs text-gray-500">{user.subscription}</p>
+                                    </div>
+
+                                    {/* Avatar */}
+                                    <div className={`h-8 w-8 sm:h-9 sm:w-9 ${getTierColor(user.tier)} rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200`}>
+                                        <span className="text-white text-xs sm:text-sm font-medium">
+                                            {user.name.split(' ').map(n => n[0]).join('')}
+                                        </span>
+                                    </div>
+
+                                    {/* Dropdown arrow */}
+                                    <ChevronDown className="h-4 w-4 text-gray-500 hidden sm:block" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-64">
+                                {/* User Info Header */}
+                                <DropdownMenuLabel>
+                                    <div className="flex items-center space-x-3">
+                                        <div className={`h-10 w-10 ${getTierColor(user.tier)} rounded-full flex items-center justify-center flex-shrink-0`}>
+                                            <span className="text-white text-sm font-medium">
+                                                {user.name.split(' ').map(n => n[0]).join('')}
+                                            </span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-gray-900 truncate">{user.name}</p>
+                                            <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                                            <div className="flex items-center space-x-2 mt-1">
+                                                <span className={`text-xs px-2 py-0.5 rounded-full ${getTierBadgeColor(user.tier)}`}>
+                                                    {user.grade}
+                                                </span>
+                                                <span className="text-xs text-gray-500">
+                                                    {user.currentLevel}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </DropdownMenuLabel>
+
+                                <DropdownMenuSeparator />
+
+                                {/* Quick Stats */}
+                                <div className="px-2 py-2">
+                                    <div className="grid grid-cols-3 gap-2 text-center">
+                                        <div className="bg-gray-50 rounded-lg p-2">
+                                            <p className="text-xs font-medium text-gray-900">{user.streakDays}</p>
+                                            <p className="text-xs text-gray-500">Day Streak</p>
+                                        </div>
+                                        <div className="bg-gray-50 rounded-lg p-2">
+                                            <p className="text-xs font-medium text-gray-900">{user.totalPoints}</p>
+                                            <p className="text-xs text-gray-500">Points</p>
+                                        </div>
+                                        <div className="bg-gray-50 rounded-lg p-2">
+                                            <p className="text-xs font-medium text-gray-900">{user.completedLessons}</p>
+                                            <p className="text-xs text-gray-500">Lessons</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <DropdownMenuSeparator />
+
+                                {/* Menu Items */}
+                                <DropdownMenuItem onClick={handleAccountSettings} className="cursor-pointer">
+                                    <User className="mr-2 h-4 w-4" />
+                                    <span>Account Settings</span>
+                                </DropdownMenuItem>
+
+                                <DropdownMenuItem onClick={handlePreferences} className="cursor-pointer">
+                                    <Settings className="mr-2 h-4 w-4" />
+                                    <span>Preferences</span>
+                                </DropdownMenuItem>
+
+                                <DropdownMenuSeparator />
+
+                                {/* Logout Button */}
+                                <DropdownMenuItem
+                                    onClick={handleLogout}
+                                    className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                                >
+                                    <LogOut className="mr-2 h-4 w-4" />
+                                    <span>Log out</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </div>
 

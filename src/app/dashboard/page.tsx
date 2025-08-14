@@ -1,159 +1,127 @@
 'use client'
 
-import React, { useState } from 'react';
-import { Calculator, Book, Globe, Beaker, Palette } from 'lucide-react';
-import DashboardHeader from './components/DashboardHeader';
-import DashboardSidebar from './components/DashboardSidebar';
-import DashboardMainContent from './components/DashboardMainContent';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { BookOpen } from 'lucide-react';
 
-// Mock user data - in real app this would come from authentication/API
-const mockUser = {
-    name: "Grace Wanjiku",
-    email: "grace.wanjiku@example.com",
-    subscription: "Junior Secondary",
-    tier: "junior" as const,
-    grade: "Grade 8",
-    profileImage: "/api/placeholder/40/40",
-    joinDate: "January 2025",
-    streakDays: 12,
-    totalPoints: 2450,
-    completedLessons: 45,
-    currentLevel: "Intermediate"
+// Function to get user grade category from authentication
+const getUserGradeCategory = (): 'primary' | 'junior' | 'senior' | null => {
+    // In real implementation, this would come from:
+    // - Authentication context/token
+    // - API call to user profile  
+    // - Local storage from login
+    // - JWT token payload
+
+    // For demo purposes, check localStorage or use mock data
+    if (typeof window !== 'undefined') {
+        // Check if user has a stored grade preference
+        const storedGrade = localStorage.getItem('userGradeCategory');
+        if (storedGrade && ['primary', 'junior', 'senior'].includes(storedGrade)) {
+            return storedGrade as 'primary' | 'junior' | 'senior';
+        }
+    }
+
+    // Mock user for demo - you can change this for testing
+    const mockUserType: 'primary' | 'junior' | 'senior' = 'junior'; // Change this for testing
+    return mockUserType;
 };
 
-// Mock progress data
-const subjectProgress = [
-    {
-        name: "Mathematics",
-        progress: 75,
-        icon: Calculator,
-        lessons: 24,
-        completed: 18,
-        nextLesson: "Quadratic Equations"
-    },
-    {
-        name: "English",
-        progress: 82,
-        icon: Book,
-        lessons: 20,
-        completed: 16,
-        nextLesson: "Essay Writing"
-    },
-    {
-        name: "Kiswahili",
-        progress: 68,
-        icon: Globe,
-        lessons: 18,
-        completed: 12,
-        nextLesson: "Mazungumzo"
-    },
-    {
-        name: "Science and Technology",
-        progress: 71,
-        icon: Beaker,
-        lessons: 28,
-        completed: 20,
-        nextLesson: "Chemical Reactions"
-    },
-    {
-        name: "Creative Arts",
-        progress: 85,
-        icon: Palette,
-        lessons: 15,
-        completed: 13,
-        nextLesson: "Digital Art"
-    },
-];
-
-// Recent activities
-const recentActivities = [
-    {
-        type: "lesson" as const,
-        subject: "Mathematics",
-        title: "Completed: Linear Equations",
-        time: "2 hours ago",
-        points: 50
-    },
-    {
-        type: "quiz" as const,
-        subject: "English",
-        title: "Quiz Score: 85%",
-        time: "1 day ago",
-        points: 35
-    },
-    {
-        type: "milestone" as const,
-        subject: "Kiswahili",
-        title: "Reached Intermediate Level",
-        time: "2 days ago",
-        points: 100
-    },
-    {
-        type: "streak" as const,
-        subject: "General",
-        title: "12-day learning streak!",
-        time: "Today",
-        points: 25
-    }
-];
-
-// Upcoming lessons
-const upcomingLessons = [
-    {
-        subject: "Mathematics",
-        title: "Quadratic Equations",
-        time: "Today, 4:00 PM",
-        duration: "45 min",
-        difficulty: "Advanced" as const
-    },
-    {
-        subject: "Science",
-        title: "Chemical Reactions",
-        time: "Tomorrow, 3:30 PM",
-        duration: "50 min",
-        difficulty: "Intermediate" as const
-    },
-    {
-        subject: "English",
-        title: "Essay Writing Techniques",
-        time: "Wed, 4:00 PM",
-        duration: "40 min",
-        difficulty: "Intermediate" as const
-    }
-];
-
 export default function DashboardPage() {
-    const [searchQuery, setSearchQuery] = useState("");
+    const router = useRouter();
+    const [isRedirecting, setIsRedirecting] = useState(true);
 
-    const handleSearch = (query: string) => {
-        setSearchQuery(query);
-        // Implement search functionality here
-        console.log("Searching for:", query);
-    };
+    useEffect(() => {
+        const redirectToGradeDashboard = async () => {
+            try {
+                // Get user's grade category
+                const gradeCategory = getUserGradeCategory();
 
+                if (gradeCategory) {
+                    // Redirect to the appropriate grade-specific dashboard
+                    router.replace(`/dashboard/${gradeCategory}`);
+                } else {
+                    // If no grade info found, redirect to grade selection or sign up
+                    router.replace('/auth/signup');
+                }
+            } catch (error) {
+                console.error('Error determining user grade:', error);
+                // Fallback to signup if there's an error
+                router.replace('/auth/signup');
+            }
+        };
+
+        // Small delay to ensure smooth transition
+        const timeoutId = setTimeout(redirectToGradeDashboard, 500);
+
+        return () => clearTimeout(timeoutId);
+    }, [router]);
+
+    // Loading screen while redirecting
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <DashboardHeader user={mockUser} onSearch={handleSearch} />
-
-            {/* Main Layout */}
-            <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
-
-                    {/* Sidebar - Hidden on mobile, shown as drawer or full width on larger screens */}
-                    <div className="lg:col-span-1">
-                        <div className="sticky top-20 lg:top-24">
-                            <DashboardSidebar user={mockUser} recentActivities={recentActivities} />
-                        </div>
+        <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex items-center justify-center">
+            <div className="text-center">
+                {/* Logo */}
+                <div className="flex items-center justify-center mb-6">
+                    <div className="relative">
+                        <BookOpen className="h-16 w-16 text-green-600 animate-pulse" />
+                        <div className="absolute inset-0 bg-green-600/20 blur-xl opacity-75 rounded-full"></div>
                     </div>
+                    <span className="ml-4 text-4xl font-bold text-gray-900 tracking-tight">Tusome</span>
+                </div>
 
-                    {/* Main Content */}
-                    <div className="lg:col-span-3">
-                        <DashboardMainContent
-                            user={mockUser}
-                            subjectProgress={subjectProgress}
-                            upcomingLessons={upcomingLessons}
-                        />
+                {/* Loading animation */}
+                <div className="mb-6">
+                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-green-200 border-t-green-600 mx-auto"></div>
+                </div>
+
+                {/* Loading text */}
+                <div className="space-y-2">
+                    <h2 className="text-xl font-semibold text-gray-900">Loading Your Dashboard</h2>
+                    <p className="text-gray-600">
+                        Personalizing your CBC learning experience...
+                    </p>
+                </div>
+
+                {/* Progress indicators */}
+                <div className="mt-8 space-y-2 max-w-md mx-auto">
+                    <div className="flex justify-between items-center text-sm text-gray-500">
+                        <span>Checking grade level</span>
+                        <span className="text-green-600">✓</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm text-gray-500">
+                        <span>Loading personalized content</span>
+                        <div className="w-4 h-4 border-2 border-green-200 border-t-green-600 rounded-full animate-spin"></div>
+                    </div>
+                    <div className="flex justify-between items-center text-sm text-gray-400">
+                        <span>Preparing dashboard</span>
+                        <span>⏳</span>
+                    </div>
+                </div>
+
+                {/* Manual navigation fallback */}
+                <div className="mt-12 pt-8 border-t border-gray-200">
+                    <p className="text-sm text-gray-500 mb-4">
+                        Taking too long? Choose your grade level:
+                    </p>
+                    <div className="flex justify-center space-x-4">
+                        <button
+                            onClick={() => router.push('/dashboard/primary')}
+                            className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
+                        >
+                            Primary (4-6)
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard/junior')}
+                            className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
+                        >
+                            Junior (7-9)
+                        </button>
+                        <button
+                            onClick={() => router.push('/dashboard/senior')}
+                            className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium"
+                        >
+                            Senior (10-12)
+                        </button>
                     </div>
                 </div>
             </div>
