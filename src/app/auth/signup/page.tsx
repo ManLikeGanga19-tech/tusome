@@ -1,4 +1,4 @@
-// pages/auth/signup.tsx - Updated signup component with backend integration
+// pages/auth/signup.tsx - Updated signup component with Encore backend integration
 'use client'
 
 import { BookOpen, Eye, EyeOff, Mail, User, Lock, ArrowRight, CheckCircle2, GraduationCap, AlertCircle } from 'lucide-react';
@@ -32,7 +32,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { useSignupForm, useAuth } from '../../../../server/lib/api/auth';
+
+//  CORRECTED IMPORT - Points to your existing auth client in server folder
+import { useSignupForm, useAuth } from '@/lib/api/auth';
 
 // Grade options mapped to your pricing structure
 const gradeOptions = [
@@ -145,16 +147,30 @@ function SignUpPage() {
     }
   }, [user, router]);
 
+  // ✅ ENHANCED SUBMIT HANDLER with better error handling and debugging
   const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
     try {
+      console.log('🚀 Starting registration process...');
+      console.log('Form data:', {
+        ...formData,
+        password: '[HIDDEN]',
+        confirmPassword: '[HIDDEN]'
+      });
+
       await handleSubmit(e);
-      // If successful, show success message and redirect
+
+      console.log('✅ Registration successful!');
       setSuccessMessage('Account created successfully! Redirecting to your dashboard...');
+
       setTimeout(() => {
         router.push('/dashboard');
       }, 2000);
     } catch (error) {
-      // Error is handled by the hook
+      console.error('❌ Registration failed:', error);
+      // Error is already handled by the useSignupForm hook
+      // The error will be displayed in the error alert below
     }
   };
 
@@ -243,12 +259,21 @@ function SignUpPage() {
                 </Alert>
               )}
 
-              {/* Error Message */}
+              {/* ✅ ENHANCED ERROR DISPLAY with better formatting */}
               {error && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    {error}
+                    <div className="space-y-1">
+                      <div className="font-medium">Registration Failed</div>
+                      <div className="text-sm">{error}</div>
+                      {/* Show debugging info in development */}
+                      {process.env.NODE_ENV === 'development' && (
+                        <div className="text-xs mt-2 text-red-500">
+                          Check browser console and Encore logs for details
+                        </div>
+                      )}
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -259,6 +284,13 @@ function SignUpPage() {
                     </Button>
                   </AlertDescription>
                 </Alert>
+              )}
+
+              {/* ✅ CONNECTION STATUS INDICATOR for debugging */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                  Backend: {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}
+                </div>
               )}
 
               <form onSubmit={onSubmit} className="space-y-4">
@@ -388,8 +420,8 @@ function SignUpPage() {
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-sm font-semibold text-gray-900">{selectedPricing.tier}</h4>
                       <Badge className={`text-xs ${selectedPricing.color === 'green' ? 'bg-green-100 text-green-800' :
-                          selectedPricing.color === 'red' ? 'bg-red-100 text-red-800' :
-                            'bg-blue-100 text-blue-800'
+                        selectedPricing.color === 'red' ? 'bg-red-100 text-red-800' :
+                          'bg-blue-100 text-blue-800'
                         }`}>
                         {selectedPricing.monthly}
                       </Badge>
@@ -572,7 +604,7 @@ function SignUpPage() {
                   </div>
                 </div>
 
-                {/* Submit Button */}
+                {/* ✅ ENHANCED SUBMIT BUTTON with better loading states */}
                 <Button
                   type="submit"
                   disabled={loading || !formData.agreeTerms || !formData.grade}
