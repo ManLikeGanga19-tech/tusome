@@ -1,5 +1,5 @@
-// auth/helpers.ts - Helper functions for Tusome authentication (UPDATED WITH ARGON2)
-import * as argon2 from "argon2";
+// auth/helpers.ts - Helper functions for Tusome authentication (UPDATED WITH @node-rs/argon2)
+import { hash, verify } from "@node-rs/argon2";
 import { createHash, randomBytes, randomUUID } from "crypto";
 // Import the database instance from auth.ts to avoid duplicates
 import { db } from "./auth";
@@ -225,9 +225,9 @@ export function validateLogin(req: LoginRequest): void {
   }
 }
 
-// Password functions
+// Password functions using @node-rs/argon2
 export async function hashPassword(password: string): Promise<string> {
-  return argon2.hash(password);
+  return hash(password);
 }
 
 export async function verifyPassword(userID: string, password: string): Promise<boolean> {
@@ -237,7 +237,7 @@ export async function verifyPassword(userID: string, password: string): Promise<
       return false;
     }
 
-    return argon2.verify(result.password_hash as string, password);
+    return verify(result.password_hash as string, password);
   } catch (error) {
     console.error('Error verifying password:', error);
     return false;
