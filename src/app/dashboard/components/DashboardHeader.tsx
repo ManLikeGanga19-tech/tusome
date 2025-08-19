@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     BookOpen,
     Search,
@@ -25,6 +26,27 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+// Backend user interface matching your Encore types
+interface BackendUser {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    grade: string;
+    grade_category: 'primary' | 'junior' | 'senior';
+    grade_tier: 'Primary CBC' | 'Junior Secondary' | 'Senior Secondary';
+    profile_image?: string;
+    is_active: boolean;
+    email_verified: boolean;
+    trial_start_date?: Date;
+    trial_end_date?: Date;
+    subscription_status: 'trial' | 'active' | 'expired' | 'cancelled';
+    last_login_at?: Date;
+    created_at: Date;
+    updated_at: Date;
+}
+
+// Display user interface for component
 interface User {
     name: string;
     email: string;
@@ -40,14 +62,122 @@ interface User {
 }
 
 interface HeaderProps {
-    user: User;
     onSearch?: (query: string) => void;
 }
 
-export default function DashboardHeader({ user, onSearch }: HeaderProps) {
+// Transform backend user data to display format
+const transformUserData = (backendUser: BackendUser): User => {
+    // Calculate days since joining
+    const joinDate = new Date(backendUser.created_at);
+    const daysSinceJoin = Math.floor((Date.now() - joinDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Format subscription status
+    const getSubscriptionDisplay = (status: string, tier: string) => {
+        if (status === 'trial') return `${tier} - Free Trial`;
+        if (status === 'active') return `${tier} - Active`;
+        if (status === 'expired') return `${tier} - Expired`;
+        if (status === 'cancelled') return `${tier} - Cancelled`;
+        return tier;
+    };
+
+    // Get grade display (e.g., "Grade 8" from "grade-8")
+    const getGradeDisplay = (grade: string) => {
+        const gradeNumber = grade.replace('grade-', '');
+        return `Grade ${gradeNumber}`;
+    };
+
+    return {
+        name: `${backendUser.first_name} ${backendUser.last_name}`,
+        email: backendUser.email,
+        subscription: getSubscriptionDisplay(backendUser.subscription_status, backendUser.grade_tier),
+        tier: backendUser.grade_category,
+        grade: getGradeDisplay(backendUser.grade),
+        profileImage: backendUser.profile_image || '',
+        joinDate: joinDate.toLocaleDateString(),
+        streakDays: Math.min(daysSinceJoin, 99), // Simulate streak (you can implement real streak logic)
+        totalPoints: daysSinceJoin * 25, // Simulate points (you can implement real points system)
+        completedLessons: Math.floor(daysSinceJoin * 1.5), // Simulate completed lessons
+        currentLevel: `Level ${Math.floor(daysSinceJoin / 7) + 1}` // Simulate current level
+    };
+};
+
+export default function DashboardHeader({ onSearch }: HeaderProps) {
+    const router = useRouter();
     const [searchQuery, setSearchQuery] = useState("");
     const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+    const [user, setUser] = useState<User | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string>('');
+
+    // Fetch user data from Encore backend
+    useEffect(() => {
+        const fetchUserData = async () => {
+            try {
+                setIsLoading(true);
+
+                // Check if user data is in localStorage first
+                const storedUser = localStorage.getItem('user');
+                const storedToken = localStorage.getItem('token');
+
+                if (!storedToken) {
+                    // No token - redirect to sign in
+                    router.push('/auth/signin');
+                    return;
+                }
+
+                if (storedUser) {
+                    // Use stored user data initially
+                    try {
+                        const backendUser: BackendUser = JSON.parse(storedUser);
+                        setUser(transformUserData(backendUser));
+                    } catch (parseError) {
+                        console.error('Error parsing stored user data:', parseError);
+                    }
+                }
+
+                // Fetch fresh user data from backend
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/profile`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${storedToken}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                if (response.ok) {
+                    const backendUser: BackendUser = await response.json();
+
+                    // Update localStorage with fresh data
+                    localStorage.setItem('user', JSON.stringify(backendUser));
+
+                    // Transform and set user data
+                    setUser(transformUserData(backendUser));
+
+                    console.log('Successfully fetched user profile for header');
+                } else {
+                    console.error('Failed to fetch user profile:', response.status);
+
+                    if (response.status === 401 || response.status === 403) {
+                        // Token is invalid - clear storage and redirect
+                        localStorage.removeItem('user');
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('refresh_token');
+                        router.push('/auth/signin');
+                    } else {
+                        setError('Failed to load user profile');
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching user data:', error);
+                setError('Error loading user profile');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchUserData();
+    }, [router]);
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const query = e.target.value;
@@ -100,29 +230,92 @@ export default function DashboardHeader({ user, onSearch }: HeaderProps) {
     };
 
     const handleAccountSettings = () => {
-        // Navigate to account settings page
-        window.location.href = '/dashboard/settings';
-        // Or with Next.js router: router.push('/dashboard/settings');
+        router.push('/dashboard/settings');
     };
 
     const handlePreferences = () => {
-        // Navigate to preferences page
-        window.location.href = '/dashboard/preferences';
-        // Or with Next.js router: router.push('/dashboard/preferences');
+        router.push('/dashboard/preferences');
     };
 
-    const handleLogout = () => {
-        // Clear authentication data
-        if (typeof window !== 'undefined') {
+    const handleLogout = async () => {
+        try {
+            const token = localStorage.getItem('token');
+            const refreshToken = localStorage.getItem('refresh_token');
+
+            // Call logout endpoint if token exists
+            if (token) {
+                try {
+                    await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/logout`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ refreshToken }),
+                    });
+                } catch (logoutError) {
+                    console.error('Error calling logout endpoint:', logoutError);
+                    // Continue with local cleanup even if API call fails
+                }
+            }
+
+            // Clear all authentication data
+            localStorage.removeItem('user');
+            localStorage.removeItem('token');
+            localStorage.removeItem('refresh_token');
             localStorage.removeItem('userGradeCategory');
-            localStorage.removeItem('authToken');
-            // Clear any other stored user data
-        }
 
-        // Redirect to login page
-        window.location.href = '/auth/signin';
-        // Or with Next.js router: router.push('/auth/signin');
+            // Redirect to sign in page
+            router.push('/auth/signin');
+        } catch (error) {
+            console.error('Error during logout:', error);
+            // Force cleanup and redirect even if there's an error
+            localStorage.clear();
+            router.push('/auth/signin');
+        }
     };
+
+    // Loading state
+    if (isLoading || !user) {
+        return (
+            <header className="bg-white shadow-sm border-b sticky top-0 z-50">
+                <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+                    <div className="flex justify-between items-center h-14 sm:h-16">
+                        {/* Logo */}
+                        <div className="flex items-center flex-shrink-0">
+                            <div className="relative">
+                                <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
+                                <div className="absolute inset-0 bg-green-600/10 blur-sm opacity-75 rounded-full"></div>
+                            </div>
+                            <span className="ml-2 text-lg sm:text-xl font-bold text-gray-900 tracking-tight">Tusome</span>
+                        </div>
+
+                        {/* Loading placeholder */}
+                        <div className="flex items-center space-x-4">
+                            <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+        );
+    }
+
+    // Error state
+    if (error) {
+        return (
+            <header className="bg-white shadow-sm border-b sticky top-0 z-50">
+                <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+                    <div className="flex justify-between items-center h-14 sm:h-16">
+                        <div className="flex items-center flex-shrink-0">
+                            <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
+                            <span className="ml-2 text-lg sm:text-xl font-bold text-gray-900 tracking-tight">Tusome</span>
+                        </div>
+                        <div className="text-sm text-red-600">{error}</div>
+                    </div>
+                </div>
+            </header>
+        );
+    }
 
     return (
         <header className="bg-white shadow-sm border-b sticky top-0 z-50">
@@ -184,8 +377,6 @@ export default function DashboardHeader({ user, onSearch }: HeaderProps) {
                                 </span>
                             </Button>
                         </div>
-
-
 
                         {/* User Profile Dropdown */}
                         <DropdownMenu>

@@ -1,6 +1,7 @@
 'use client'
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     BookOpen,
     ChevronRight,
@@ -16,12 +17,34 @@ import {
     Palette,
     Languages,
     Wrench,
-    Smile
+    Smile,
+    Loader2
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 
+// Backend user interface matching your Encore types
+interface BackendUser {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    grade: string;
+    grade_category: 'primary' | 'junior' | 'senior';
+    grade_tier: 'Primary CBC' | 'Junior Secondary' | 'Senior Secondary';
+    profile_image?: string;
+    is_active: boolean;
+    email_verified: boolean;
+    trial_start_date?: Date;
+    trial_end_date?: Date;
+    subscription_status: 'trial' | 'active' | 'expired' | 'cancelled';
+    last_login_at?: Date;
+    created_at: Date;
+    updated_at: Date;
+}
+
+// Display user interface for component
 interface User {
     name: string;
     email: string;
@@ -53,11 +76,113 @@ interface UpcomingLesson {
     difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
 }
 
-interface MainContentProps {
-    user: User;
-    subjectProgress: SubjectProgress[];
-    upcomingLessons: UpcomingLesson[];
-}
+// Transform backend user data to display format
+const transformUserData = (backendUser: BackendUser): User => {
+    const joinDate = new Date(backendUser.created_at);
+    const daysSinceJoin = Math.floor((Date.now() - joinDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    const getSubscriptionDisplay = (status: string, tier: string) => {
+        if (status === 'trial') return `${tier} - Free Trial`;
+        if (status === 'active') return `${tier} - Active`;
+        if (status === 'expired') return `${tier} - Expired`;
+        if (status === 'cancelled') return `${tier} - Cancelled`;
+        return tier;
+    };
+
+    const getGradeDisplay = (grade: string) => {
+        const gradeNumber = grade.replace('grade-', '');
+        return `Grade ${gradeNumber}`;
+    };
+
+    return {
+        name: `${backendUser.first_name} ${backendUser.last_name}`,
+        email: backendUser.email,
+        subscription: getSubscriptionDisplay(backendUser.subscription_status, backendUser.grade_tier),
+        tier: backendUser.grade_category,
+        grade: getGradeDisplay(backendUser.grade),
+        profileImage: backendUser.profile_image || '',
+        joinDate: joinDate.toLocaleDateString(),
+        streakDays: Math.min(daysSinceJoin, 99),
+        totalPoints: daysSinceJoin * 25,
+        completedLessons: Math.floor(daysSinceJoin * 1.5),
+        currentLevel: `Level ${Math.floor(daysSinceJoin / 7) + 1}`
+    };
+};
+
+// Generate subject progress based on user's grade category
+const generateSubjectProgress = (gradeCategory: 'primary' | 'junior' | 'senior'): SubjectProgress[] => {
+    const subjectData: Record<string, { icon: any; baseProgress: number; lessons: number }> = {
+        Mathematics: { icon: Calculator, baseProgress: 75, lessons: 24 },
+        English: { icon: Book, baseProgress: 68, lessons: 20 },
+        Kiswahili: { icon: Languages, baseProgress: 72, lessons: 18 },
+        'Science and Technology': { icon: Beaker, baseProgress: 65, lessons: 22 },
+        'Creative Arts': { icon: Palette, baseProgress: 80, lessons: 16 },
+        Languages: { icon: Globe, baseProgress: 70, lessons: 20 },
+        'Religious Education': { icon: Book, baseProgress: 85, lessons: 12 },
+        'Pure Sciences': { icon: Beaker, baseProgress: 62, lessons: 28 },
+        'Technical Studies': { icon: Wrench, baseProgress: 58, lessons: 24 },
+        Humanities: { icon: Globe, baseProgress: 73, lessons: 20 },
+        'English Literature': { icon: Book, baseProgress: 67, lessons: 18 }
+    };
+
+    const subjectsByTier = {
+        primary: ['Mathematics', 'English', 'Kiswahili', 'Science and Technology', 'Creative Arts'],
+        junior: ['Mathematics', 'English', 'Kiswahili', 'Science and Technology', 'Creative Arts', 'Languages', 'Religious Education'],
+        senior: ['Mathematics', 'English', 'Kiswahili', 'Science and Technology', 'Pure Sciences', 'Technical Studies', 'Languages', 'Humanities', 'English Literature']
+    };
+
+    const nextLessons = [
+        'Introduction to Algebra',
+        'Creative Writing',
+        'Mazungumzo ya Kila Siku',
+        'Basic Chemistry',
+        'Digital Art Basics',
+        'French Basics',
+        'World Religions',
+        'Advanced Physics',
+        'Programming Fundamentals',
+        'World History',
+        'Poetry Analysis'
+    ];
+
+    return subjectsByTier[gradeCategory].map((subject, index) => {
+        const data = subjectData[subject];
+        const progress = Math.max(0, Math.min(100, data.baseProgress + Math.random() * 20 - 10));
+        const completed = Math.floor((progress / 100) * data.lessons);
+
+        return {
+            name: subject,
+            progress: Math.round(progress),
+            icon: data.icon,
+            lessons: data.lessons,
+            completed,
+            nextLesson: nextLessons[index] || 'Next Topic Overview'
+        };
+    });
+};
+
+// Generate upcoming lessons based on user's grade category
+const generateUpcomingLessons = (gradeCategory: 'primary' | 'junior' | 'senior'): UpcomingLesson[] => {
+    const lessonsByTier = {
+        primary: [
+            { subject: 'Mathematics', title: 'Addition and Subtraction', time: 'Today at 10:00 AM', duration: '30 min', difficulty: 'Beginner' as const },
+            { subject: 'English', title: 'Reading Comprehension', time: 'Today at 2:00 PM', duration: '25 min', difficulty: 'Beginner' as const },
+            { subject: 'Science and Technology', title: 'Plants and Animals', time: 'Tomorrow at 11:00 AM', duration: '35 min', difficulty: 'Beginner' as const }
+        ],
+        junior: [
+            { subject: 'Mathematics', title: 'Linear Equations', time: 'Today at 9:00 AM', duration: '45 min', difficulty: 'Intermediate' as const },
+            { subject: 'Science and Technology', title: 'Chemical Reactions', time: 'Today at 1:00 PM', duration: '40 min', difficulty: 'Intermediate' as const },
+            { subject: 'English', title: 'Essay Writing Skills', time: 'Tomorrow at 10:00 AM', duration: '50 min', difficulty: 'Intermediate' as const }
+        ],
+        senior: [
+            { subject: 'Mathematics', title: 'Calculus Applications', time: 'Today at 8:00 AM', duration: '60 min', difficulty: 'Advanced' as const },
+            { subject: 'Pure Sciences', title: 'Organic Chemistry', time: 'Today at 11:00 AM', duration: '55 min', difficulty: 'Advanced' as const },
+            { subject: 'English Literature', title: 'Shakespeare Analysis', time: 'Tomorrow at 9:00 AM', duration: '50 min', difficulty: 'Advanced' as const }
+        ]
+    };
+
+    return lessonsByTier[gradeCategory];
+};
 
 // Content access configuration
 const contentAccess = {
@@ -81,23 +206,89 @@ const contentAccess = {
     }
 };
 
-export default function DashboardMainContent({ user, subjectProgress, upcomingLessons }: MainContentProps) {
-    const userAccess = contentAccess[user.tier];
-    const tierColor = userAccess.color;
+export default function DashboardMainContent() {
+    const router = useRouter();
+    const [user, setUser] = useState<User | null>(null);
+    const [subjectProgress, setSubjectProgress] = useState<SubjectProgress[]>([]);
+    const [upcomingLessons, setUpcomingLessons] = useState<UpcomingLesson[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string>('');
 
-    // Filter subjects based on user's tier
-    const accessibleSubjects = subjectProgress.filter(subject =>
-        userAccess.subjects.includes(subject.name)
-    );
+    // Fetch user data from Encore backend
+    useEffect(() => {
+        const fetchUserData = async () => {
+            try {
+                setIsLoading(true);
 
-    const getTierColorClasses = (color: string, type: 'bg' | 'text' | 'border' = 'bg', shade: string = '600') => {
-        const colorMap = {
-            blue: { bg: 'bg-blue', text: 'text-blue', border: 'border-blue' },
-            green: { bg: 'bg-green', text: 'text-green', border: 'border-green' },
-            red: { bg: 'bg-red', text: 'text-red', border: 'border-red' }
+                // Check if user data is in localStorage first
+                const storedUser = localStorage.getItem('user');
+                const storedToken = localStorage.getItem('token');
+
+                if (!storedToken) {
+                    router.push('/auth/signin');
+                    return;
+                }
+
+                if (storedUser) {
+                    try {
+                        const backendUser: BackendUser = JSON.parse(storedUser);
+                        const transformedUser = transformUserData(backendUser);
+                        setUser(transformedUser);
+
+                        // Generate content based on user's grade category
+                        setSubjectProgress(generateSubjectProgress(backendUser.grade_category));
+                        setUpcomingLessons(generateUpcomingLessons(backendUser.grade_category));
+                    } catch (parseError) {
+                        console.error('Error parsing stored user data:', parseError);
+                    }
+                }
+
+                // Fetch fresh user data from backend
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/profile`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${storedToken}`,
+                        'Content-Type': 'application/json',
+                    },
+                });
+
+                if (response.ok) {
+                    const backendUser: BackendUser = await response.json();
+
+                    // Update localStorage with fresh data
+                    localStorage.setItem('user', JSON.stringify(backendUser));
+
+                    // Transform and set user data
+                    const transformedUser = transformUserData(backendUser);
+                    setUser(transformedUser);
+
+                    // Generate content based on user's grade category
+                    setSubjectProgress(generateSubjectProgress(backendUser.grade_category));
+                    setUpcomingLessons(generateUpcomingLessons(backendUser.grade_category));
+
+                    console.log('Successfully fetched user profile for dashboard');
+                } else {
+                    console.error('Failed to fetch user profile:', response.status);
+
+                    if (response.status === 401 || response.status === 403) {
+                        localStorage.removeItem('user');
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('refresh_token');
+                        router.push('/auth/signin');
+                    } else {
+                        setError('Failed to load user profile');
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching user data:', error);
+                setError('Error loading dashboard data');
+            } finally {
+                setIsLoading(false);
+            }
         };
-        return `${colorMap[color as keyof typeof colorMap][type]}-${shade}`;
-    };
+
+        fetchUserData();
+    }, [router]);
 
     const getDifficultyColor = (difficulty: string) => {
         switch (difficulty) {
@@ -107,6 +298,66 @@ export default function DashboardMainContent({ user, subjectProgress, upcomingLe
             default: return 'bg-gray-100 text-gray-700';
         }
     };
+
+    // Loading state
+    if (isLoading || !user) {
+        return (
+            <div className="space-y-6 sm:space-y-8">
+                <div className="bg-gray-100 rounded-xl p-4 sm:p-6 animate-pulse">
+                    <div className="h-6 bg-gray-200 rounded w-1/3 mb-4"></div>
+                    <div className="h-4 bg-gray-200 rounded w-2/3 mb-4"></div>
+                    <div className="h-10 bg-gray-200 rounded w-1/4"></div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                    {[1, 2, 3].map((i) => (
+                        <Card key={i} className="animate-pulse">
+                            <CardContent className="p-4 sm:p-6">
+                                <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                                <div className="h-2 bg-gray-200 rounded mb-4"></div>
+                                <div className="h-8 bg-gray-200 rounded"></div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+
+                <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                    <span className="ml-2 text-gray-500">Loading your dashboard...</span>
+                </div>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error) {
+        return (
+            <div className="space-y-6 sm:space-y-8">
+                <Card className="border-red-200 bg-red-50">
+                    <CardContent className="p-4 sm:p-6 text-center">
+                        <div className="text-red-600 mb-2">
+                            <h3 className="font-semibold">Error Loading Dashboard</h3>
+                            <p className="text-sm">{error}</p>
+                        </div>
+                        <Button
+                            onClick={() => window.location.reload()}
+                            className="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            Retry
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
+    const userAccess = contentAccess[user.tier];
+    const tierColor = userAccess.color;
+
+    // Filter subjects based on user's tier
+    const accessibleSubjects = subjectProgress.filter(subject =>
+        userAccess.subjects.includes(subject.name)
+    );
 
     return (
         <div className="space-y-6 sm:space-y-8">

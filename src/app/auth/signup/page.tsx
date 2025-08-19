@@ -1,4 +1,4 @@
-// pages/auth/signup.tsx - Updated signup component with Encore backend integration
+// pages/auth/signup.tsx - Updated signup component with redirect to sign-in
 'use client'
 
 import { BookOpen, Eye, EyeOff, Mail, User, Lock, ArrowRight, CheckCircle2, GraduationCap, AlertCircle } from 'lucide-react';
@@ -140,14 +140,15 @@ function SignUpPage() {
     clearError,
   } = useSignupForm();
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated - stay on signup page if user exists
   useEffect(() => {
     if (user) {
-      router.push('/dashboard');
+      // Don't redirect - let user stay on signup page
+      console.log('User already authenticated, but staying on signup page');
     }
   }, [user, router]);
 
-  // ✅ ENHANCED SUBMIT HANDLER with better error handling and debugging
+  // ✅ MODIFIED SUBMIT HANDLER - redirect to sign-in page instead of dashboard
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -162,10 +163,11 @@ function SignUpPage() {
       await handleSubmit(e);
 
       console.log('✅ Registration successful!');
-      setSuccessMessage('Account created successfully! Redirecting to your dashboard...');
+      setSuccessMessage('Account created successfully! Redirecting to sign in page...');
 
+      // Redirect to sign-in page instead of dashboard
       setTimeout(() => {
-        router.push('/dashboard');
+        router.push('/auth/signin');
       }, 2000);
     } catch (error) {
       console.error('❌ Registration failed:', error);
@@ -618,7 +620,7 @@ function SignUpPage() {
                     </div>
                   ) : (
                     <div className="flex items-center justify-center space-x-2">
-                      <span className="relative z-10">Start Free Trial</span>
+                      <span className="relative z-10">Create Account</span>
                       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </div>
                   )}

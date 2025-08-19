@@ -1,11 +1,13 @@
 'use client'
 
-import { BookOpen, Eye, EyeOff, Mail, Lock, ArrowRight, CheckCircle2, Users, BookMarked, Trophy, GraduationCap, Shield } from 'lucide-react';
+import { BookOpen, Eye, EyeOff, Mail, Lock, ArrowRight, CheckCircle2, Users, BookMarked, Trophy, GraduationCap, Shield, AlertCircle } from 'lucide-react';
 import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   Card,
   CardContent,
@@ -15,7 +17,55 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
-// Grade mapping for display purposes
+// Import your existing auth hooks (assuming they exist in the same location as signup)
+// If these don't exist yet, I'll create them below
+import { useAuth } from '@/lib/api/auth';
+
+// Types to match your backend
+interface User {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  grade: string;
+  grade_category: 'primary' | 'junior' | 'senior';
+  grade_tier: 'Primary CBC' | 'Junior Secondary' | 'Senior Secondary';
+  profile_image?: string;
+  is_active: boolean;
+  email_verified: boolean;
+  trial_start_date?: Date;
+  trial_end_date?: Date;
+  subscription_status: 'trial' | 'active' | 'expired' | 'cancelled';
+  last_login_at?: Date;
+  created_at: Date;
+  updated_at: Date;
+}
+
+interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+interface AuthResponse {
+  user: User;
+  token: string;
+  refresh_token: string;
+  expires_in: number;
+  message: string;
+}
+
+// Helper function to determine dashboard route based on grade category
+function getDashboardRoute(gradeCategory: 'primary' | 'junior' | 'senior'): string {
+  const dashboardRoutes = {
+    primary: '/dashboard/primary',     // Grades 4-6
+    junior: '/dashboard/junior',       // Grades 7-9  
+    senior: '/dashboard/senior'        // Grades 10-12
+  };
+
+  return dashboardRoutes[gradeCategory] || '/dashboard/junior'; // Default fallback
+}
+
+// Grade mapping for display purposes (matches your gradeConfig)
 const getGradeDisplayInfo = (gradeLevel: string) => {
   const gradeMap: Record<string, { label: string; tier: string; category: string; color: string }> = {
     'grade-4': { label: 'Grade 4', tier: 'Primary CBC', category: 'primary', color: 'blue' },
@@ -32,16 +82,173 @@ const getGradeDisplayInfo = (gradeLevel: string) => {
   return gradeMap[gradeLevel] || null;
 };
 
-function SignInPage() {
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+// Custom hook for login functionality
+function useLogin() {
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [userGradeInfo, setUserGradeInfo] = useState<any>(null);
+
+  const login = async (loginData: LoginRequest): Promise<AuthResponse> => {
+    setLoading(true);
+    setError('');
+
+    try {
+      console.log('🚀 Starting login process...');
+      console.log('Login data:', { email: loginData.email, password: '[HIDDEN]' });
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(loginData),
+      });
+
+      const data = await response.json();
+      console.log('Backend response status:', response.status);
+
+      if (!response.ok) {
+        console.error('❌ Login failed:', data);
+        throw new Error(data.message || 'Login failed. Please check your credentials.');
+      }
+
+      console.log('✅ Login successful!');
+
+      // Store tokens in localStorage
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('refresh_token', data.refresh_token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      return data as AuthResponse;
+    } catch (error: any) {
+      console.error('❌ Login error:', error);
+      const errorMessage = error.message || 'Login failed. Please try again.';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearError = () => setError('');
+
+  return { login, loading, error, clearError };
+}
+
+// Custom hook to fetch user info by email (for grade tier display)
+function useUserLookup() {
+  const [userInfo, setUserInfo] = useState<User | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const lookupUser = async (email: string) => {
+    if (!email || !email.includes('@')) {
+      setUserInfo(null);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log('Looking up user info for:', email);
+
+      // Create a lightweight endpoint call to check if user exists and get basic info
+      // Since your backend doesn't have a public user lookup endpoint, we'll simulate
+      // what the API response would look like by calling a getUserByEmail equivalent
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/user-lookup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email.toLowerCase().trim() }),
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setUserInfo(userData.user || null);
+      } else {
+        // User not found or error - don't show tier info
+        setUserInfo(null);
+      }
+    } catch (error) {
+      console.error('Error looking up user:', error);
+      // For demo purposes, let's simulate some users until you create the endpoint
+      simulateUserLookup(email);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Temporary simulation function until you create the backend endpoint
+  const simulateUserLookup = (email: string) => {
+    const mockUsers: Record<string, Partial<User>> = {
+      'test@gmail.com': {
+        id: '1',
+        first_name: 'Test',
+        last_name: 'Student',
+        email: 'test@gmail.com',
+        grade: 'grade-8',
+        grade_category: 'junior',
+        grade_tier: 'Junior Secondary',
+        subscription_status: 'trial'
+      },
+      'john.doe@example.com': {
+        id: '2',
+        first_name: 'John',
+        last_name: 'Doe',
+        email: 'john.doe@example.com',
+        grade: 'grade-10',
+        grade_category: 'senior',
+        grade_tier: 'Senior Secondary',
+        subscription_status: 'active'
+      },
+      'grace.m@student.ke': {
+        id: '3',
+        first_name: 'Grace',
+        last_name: 'Mwangi',
+        email: 'grace.m@student.ke',
+        grade: 'grade-12',
+        grade_category: 'senior',
+        grade_tier: 'Senior Secondary',
+        subscription_status: 'trial'
+      },
+      'peter.k@student.ke': {
+        id: '4',
+        first_name: 'Peter',
+        last_name: 'Kiprotich',
+        email: 'peter.k@student.ke',
+        grade: 'grade-6',
+        grade_category: 'primary',
+        grade_tier: 'Primary CBC',
+        subscription_status: 'active'
+      },
+    };
+
+    const userData = mockUsers[email.toLowerCase()];
+    setUserInfo(userData as User || null);
+  };
+
+  return { userInfo, loading, lookupUser, setUserInfo };
+}
+
+function SignInPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+  const { login, loading: loginLoading, error, clearError } = useLogin();
+  const { userInfo, loading: lookupLoading, lookupUser, setUserInfo } = useUserLookup();
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     rememberMe: false
   });
+
+  // Redirect if already authenticated - redirect to sign-in instead of dashboard
+  useEffect(() => {
+    if (user) {
+      router.push('/auth/signin');
+    }
+  }, [user, router]);
 
   const handleInputChange = (field: string, value: string | boolean) => {
     setFormData(prev => ({
@@ -49,109 +256,63 @@ function SignInPage() {
       [field]: value
     }));
     // Clear error when user starts typing
-    if (error) setError('');
+    if (error) clearError();
   };
 
-  // Fetch user grade info when email changes (simulate backend call)
+  // Lookup user info when email changes (debounced)
   useEffect(() => {
-    const fetchUserGradeInfo = async () => {
+    const timeoutId = setTimeout(() => {
       if (formData.email && formData.email.includes('@')) {
-        // Simulate API call to fetch user's grade info
-        // In real implementation, this would be:
-        // const response = await fetch(`/api/users/grade-info?email=${formData.email}`);
-        // const gradeData = await response.json();
-
-        // For demo purposes, simulate different users
-        const mockUserData: Record<string, { gradeLevel: string; studentName: string }> = {
-          'test@gmail.com': { gradeLevel: 'grade-8', studentName: 'Test Student' },
-          'john.doe@example.com': { gradeLevel: 'grade-10', studentName: 'John Doe' },
-          'grace.m@student.ke': { gradeLevel: 'grade-12', studentName: 'Grace Mwangi' },
-          'peter.k@student.ke': { gradeLevel: 'grade-6', studentName: 'Peter Kiprotich' },
-        };
-
-        const userData = mockUserData[formData.email.toLowerCase()];
-        if (userData) {
-          const gradeInfo = getGradeDisplayInfo(userData.gradeLevel);
-          if (gradeInfo) {
-            setUserGradeInfo({
-              ...gradeInfo,
-              studentName: userData.studentName,
-              gradeLevel: userData.gradeLevel
-            });
-          }
-        } else {
-          setUserGradeInfo(null);
-        }
+        lookupUser(formData.email);
       } else {
-        setUserGradeInfo(null);
+        // Clear user info if email is invalid
+        if (userInfo) {
+          setUserInfo(null);
+        }
       }
-    };
+    }, 500); // 500ms debounce
 
-    // Debounce the API call
-    const timeoutId = setTimeout(fetchUserGradeInfo, 500);
     return () => clearTimeout(timeoutId);
   }, [formData.email]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError('');
 
-    // Simulate API call with validation
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const authResponse = await login({
+        email: formData.email,
+        password: formData.password
+      });
 
-      // Check credentials with grade-specific validation
-      const validCredentials = [
-        { email: 'test@gmail.com', password: 'test123' },
-        { email: 'john.doe@example.com', password: 'password123' },
-        { email: 'grace.m@student.ke', password: 'grace2024' },
-        { email: 'peter.k@student.ke', password: 'peter123' },
-      ];
+      console.log('✅ Login successful:', authResponse);
 
-      const user = validCredentials.find(
-        cred => cred.email === formData.email && cred.password === formData.password
-      );
+      // Determine dashboard route based on user's grade category
+      const dashboardRoute = getDashboardRoute(authResponse.user.grade_category);
+      console.log(`Redirecting to dashboard: ${dashboardRoute}`);
 
-      if (user && userGradeInfo) {
-        console.log('Login successful:', {
-          ...formData,
-          gradeInfo: userGradeInfo
-        });
+      // Store user data for dashboard access
+      localStorage.setItem('user', JSON.stringify(authResponse.user));
+      localStorage.setItem('token', authResponse.token);
+      localStorage.setItem('refresh_token', authResponse.refresh_token);
 
-        // Redirect to grade-specific dashboard
-        const dashboardPath = `/dashboard/${userGradeInfo.category}`;
-        window.location.href = dashboardPath;
+      // Show success message with automatic redirect (like signup page)
+      const gradeInfo = getGradeDisplayInfo(authResponse.user.grade);
+      setSuccessMessage(`Welcome back! Redirecting to your ${authResponse.user.grade_tier} dashboard...`);
 
-        // Alternative using Next.js router:
-        // router.push(dashboardPath);
+      // Redirect to appropriate dashboard after showing success message
+      setTimeout(() => {
+        router.push(dashboardRoute);
+      }, 2000);
 
-      } else if (!userGradeInfo) {
-        setError('Email not found. Please check your email or sign up first.');
-      } else {
-        setError('Invalid password. Please try again.');
-      }
-    }, 2000);
+    } catch (error) {
+      console.error('❌ Login failed:', error);
+      // Error is already handled by the useLogin hook
+    }
   };
 
   // Handle forgot password click
   const handleForgotPassword = () => {
-    window.location.href = '/auth/forgot-password';
-  };
-
-  // Demo credentials filler with different users
-  const fillDemoCredentials = (userType: 'junior' | 'senior' | 'primary' = 'junior') => {
-    const demoUsers = {
-      junior: { email: 'test@gmail.com', password: 'test123' },
-      senior: { email: 'grace.m@student.ke', password: 'grace2024' },
-      primary: { email: 'peter.k@student.ke', password: 'peter123' }
-    };
-
-    setFormData({
-      email: demoUsers[userType].email,
-      password: demoUsers[userType].password,
-      rememberMe: false
-    });
+    router.push('/auth/forgot-password');
   };
 
   const features = [
@@ -250,41 +411,48 @@ function SignInPage() {
             </CardHeader>
 
             <CardContent className="space-y-6">
-              {/* Demo Credentials Banner */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-blue-900">Demo Accounts</p>
-                  <div className="grid grid-cols-3 gap-1">
+              {/* Success Message - Fallback like signup page */}
+              {successMessage && (
+                <Alert className="bg-green-50 border-green-200">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  <AlertDescription className="text-green-800">
+                    {successMessage}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Error Message */}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <div className="space-y-1">
+                      <div className="font-medium">Sign In Failed</div>
+                      <div className="text-sm">{error}</div>
+                      {process.env.NODE_ENV === 'development' && (
+                        <div className="text-xs mt-2 text-red-500">
+                          Check browser console and Encore logs for details
+                        </div>
+                      )}
+                    </div>
                     <Button
-                      type="button"
+                      variant="ghost"
                       size="sm"
-                      variant="outline"
-                      onClick={() => fillDemoCredentials('primary')}
-                      className="text-xs py-1 h-auto"
+                      onClick={clearError}
+                      className="ml-2 h-auto p-0 text-red-600 hover:text-red-700"
                     >
-                      Primary
+                      Dismiss
                     </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => fillDemoCredentials('junior')}
-                      className="text-xs py-1 h-auto"
-                    >
-                      Junior
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => fillDemoCredentials('senior')}
-                      className="text-xs py-1 h-auto"
-                    >
-                      Senior
-                    </Button>
-                  </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Connection Status for Development */}
+              {process.env.NODE_ENV === 'development' && (
+                <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                  Backend: {process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}
                 </div>
-              </div>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Email */}
@@ -306,8 +474,8 @@ function SignInPage() {
                   </div>
                 </div>
 
-                {/* Grade Level Display - Shows when user is found */}
-                {userGradeInfo && (
+                {/* Grade Level Display - Shows when user is found via login response */}
+                {userInfo && (
                   <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-4 border border-green-100">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center space-x-2">
@@ -323,22 +491,22 @@ function SignInPage() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Grade Level:</span>
-                        <Badge className={`text-xs ${userGradeInfo.color === 'green' ? 'bg-green-100 text-green-800' :
-                            userGradeInfo.color === 'red' ? 'bg-red-100 text-red-800' :
+                        <Badge className={`text-xs ${userInfo.grade_category === 'junior' ? 'bg-green-100 text-green-800' :
+                            userInfo.grade_category === 'senior' ? 'bg-red-100 text-red-800' :
                               'bg-blue-100 text-blue-800'
                           }`}>
-                          {userGradeInfo.label}
+                          {getGradeDisplayInfo(userInfo.grade)?.label || userInfo.grade}
                         </Badge>
                       </div>
 
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Program:</span>
-                        <span className="text-sm font-medium text-gray-900">{userGradeInfo.tier}</span>
+                        <span className="text-sm font-medium text-gray-900">{userInfo.grade_tier}</span>
                       </div>
 
                       <div className="pt-1 border-t border-green-100">
                         <p className="text-xs text-gray-500">
-                          Welcome back, {userGradeInfo.studentName}! Your content is personalized for {userGradeInfo.label}.
+                          Welcome back, {userInfo.first_name}! Your content is personalized for {getGradeDisplayInfo(userInfo.grade)?.label || userInfo.grade}.
                         </p>
                       </div>
                     </div>
@@ -371,13 +539,6 @@ function SignInPage() {
                   </div>
                 </div>
 
-                {/* Error Message */}
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                    <p className="text-sm text-red-700">{error}</p>
-                  </div>
-                )}
-
                 {/* Remember Me & Forgot Password */}
                 <div className="flex items-center justify-between pt-2">
                   <div className="flex items-center space-x-2">
@@ -403,11 +564,11 @@ function SignInPage() {
                 {/* Submit Button */}
                 <Button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={loginLoading}
                   className="w-full bg-green-600 text-white py-3 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 font-semibold relative overflow-hidden group"
                   size="lg"
                 >
-                  {isLoading ? (
+                  {loginLoading ? (
                     <div className="flex items-center justify-center space-x-2">
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       <span>Signing In...</span>
@@ -415,7 +576,7 @@ function SignInPage() {
                   ) : (
                     <div className="flex items-center justify-center space-x-2">
                       <span className="relative z-10">
-                        {userGradeInfo ? `Access ${userGradeInfo.tier}` : 'Sign In'}
+                        {userInfo ? `Access ${userInfo.grade_tier} Dashboard` : 'Sign In'}
                       </span>
                       <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </div>
@@ -468,4 +629,4 @@ function SignInPage() {
   );
 }
 
-export default SignInPage;  
+export default SignInPage;
