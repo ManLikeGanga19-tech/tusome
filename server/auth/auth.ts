@@ -1,4 +1,4 @@
-// auth/auth.ts - TypeScript Encore Auth Service (UPDATED WITH FIXES)
+// auth/auth.ts - TypeScript Encore Auth Service (FIXED DYNAMIC IMPORTS)
 import { api } from "encore.dev/api";
 import { SQLDatabase } from "encore.dev/storage/sqldb";
 import { Header } from "encore.dev/api";
@@ -21,7 +21,8 @@ import {
 	getUserByEmail,
 	verifyPassword,
 	getUserByID,
-	invalidateRefreshToken
+	invalidateRefreshToken,
+	verifyJWT
 } from "./helpers";
 
 // Database configuration - exported so helpers.ts can import it
@@ -291,6 +292,7 @@ export const userLookup = api(
 		}
 	}
 );
+
 // Get profile endpoint (requires authentication)
 export const getProfile = api(
 	{ method: "GET", path: "/auth/profile", expose: true },
@@ -311,8 +313,7 @@ export const getProfile = api(
 				throw new Error("No token provided");
 			}
 
-			// Verify the JWT token
-			const { verifyJWT } = await import("./helpers");
+			// FIXED: Use direct import instead of dynamic import
 			const claims = verifyJWT(token);
 
 			if (!claims.userID) {
@@ -365,8 +366,7 @@ export const updateProfile = api(
 				throw new Error("No token provided");
 			}
 
-			// Verify the JWT token
-			const { verifyJWT } = await import("./helpers");
+			// FIXED: Use direct import instead of dynamic import
 			const claims = verifyJWT(token);
 
 			if (!claims.userID) {
@@ -435,8 +435,7 @@ export const logout = api(
 				throw new Error("No token provided");
 			}
 
-			// Verify the JWT token
-			const { verifyJWT } = await import("./helpers");
+			// FIXED: Use direct import instead of dynamic import
 			const claims = verifyJWT(token);
 
 			if (!claims.userID) {

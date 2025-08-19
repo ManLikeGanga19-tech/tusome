@@ -1,12 +1,8 @@
-// auth/middleware.ts - Encore TypeScript Auth Middleware
+// auth/middleware.ts - Encore TypeScript Auth Middleware (IMPROVED)
 import { middleware, APIError, ErrCode } from "encore.dev/api";
 import { Header } from "encore.dev/api";
 import { verifyJWT, getUserByID } from "./helpers";
 import type { User, JWTClaims } from "./helpers";
-
-// Global variable to store current user context (Encore pattern)
-let currentUser: User | null = null;
-let currentUserID: string | null = null;
 
 /**
  * Authentication middleware that validates JWT tokens
@@ -63,14 +59,11 @@ export const authMiddleware = middleware(
                 throw new APIError(ErrCode.PermissionDenied, "Subscription has expired");
             }
 
-            // Set the current user context
-            currentUser = user;
-            currentUserID = user.id;
-
-            // Store user in middleware data for access in endpoints
+            // Store user in request context for access in endpoints
+            // Note: In Encore, we typically pass user data through request parameters
             if (req.data && typeof req.data === 'object') {
                 // We can't directly assign to req.data as it's readonly
-                // Instead, we'll use global variables and helper functions
+                // Instead, endpoints should handle auth individually for now
             }
 
             console.log(`Authenticated user: ${user.email} (${user.id})`);
@@ -78,17 +71,9 @@ export const authMiddleware = middleware(
             // Call the next handler
             const response = await next(req);
 
-            // Clear user context after request
-            currentUser = null;
-            currentUserID = null;
-
             return response;
 
         } catch (error) {
-            // Clear user context on error
-            currentUser = null;
-            currentUserID = null;
-
             // Re-throw API errors
             if (error instanceof APIError) {
                 throw error;
@@ -137,8 +122,6 @@ export const optionalAuthMiddleware = middleware(
                         const user = await getUserByID(claims.userID);
 
                         if (user && user.is_active) {
-                            currentUser = user;
-                            currentUserID = user.id;
                             console.log(`Optional auth: authenticated user ${user.email}`);
                         }
                     }
@@ -150,16 +133,9 @@ export const optionalAuthMiddleware = middleware(
 
             const response = await next(req);
 
-            // Clear user context after request
-            currentUser = null;
-            currentUserID = null;
-
             return response;
 
         } catch (error) {
-            // Clear user context on error
-            currentUser = null;
-            currentUserID = null;
             throw error;
         }
     }
@@ -174,7 +150,30 @@ export const subscriptionMiddleware = middleware(
         target: { auth: true }
     },
     async (req, next) => {
-        const user = getCurrentUser();
+        // For subscription middleware, we need to re-authenticate since we don't have global state
+        let token: string | undefined;
+        let user: User | null = null;
+
+        // Try to get token from request data
+        if (req.data && typeof req.data === 'object' && 'authorization' in req.data) {
+            const authHeader = req.data.authorization as string;
+            if (authHeader && authHeader.startsWith('Bearer ')) {
+                token = authHeader.substring(7);
+            }
+        }
+
+        if (!token) {
+            throw new APIError(ErrCode.Unauthenticated, "Authentication required");
+        }
+
+        try {
+            const claims: JWTClaims = verifyJWT(token);
+            if (claims.userID) {
+                user = await getUserByID(claims.userID);
+            }
+        } catch (error) {
+            throw new APIError(ErrCode.Unauthenticated, "Authentication failed");
+        }
 
         if (!user) {
             throw new APIError(ErrCode.Unauthenticated, "Authentication required");
@@ -200,36 +199,59 @@ export const subscriptionMiddleware = middleware(
 );
 
 /**
- * Helper function to get the current authenticated user
+ * Helper function to get authenticated user from token
  * Use this in your API endpoints to access the authenticated user
  */
-export function getCurrentUser(): User | null {
-    return currentUser;
-}
-
-/**
- * Helper function to get the current authenticated user ID
- */
-export function getCurrentUserID(): string | null {
-    return currentUserID;
-}
-
-/**
- * Helper function that throws if no user is authenticated
- */
-export function requireAuth(): User {
-    const user = getCurrentUser();
-    if (!user) {
-        throw new APIError(ErrCode.Unauthenticated, "Authentication required");
+export async function getAuthenticatedUser(authHeader: string): Promise<User> {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        throw new APIError(ErrCode.Unauthenticated, "Missing or invalid authorization header");
     }
+
+    const token = authHeader.substring(7);
+
+    if (!token) {
+        throw new APIError(ErrCode.Unauthenticated, "No token provided");
+    }
+
+    const claims: JWTClaims = verifyJWT(token);
+
+    if (!claims.userID) {
+        throw new APIError(ErrCode.Unauthenticated, "Invalid token: missing user ID");
+    }
+
+    const user = await getUserByID(claims.userID);
+
+    if (!user) {
+        throw new APIError(ErrCode.Unauthenticated, "User not found");
+    }
+
+    if (!user.is_active) {
+        throw new APIError(ErrCode.Unauthenticated, "Account has been deactivated");
+    }
+
     return user;
 }
 
 /**
- * Helper function to check if current user has specific permissions
+ * Helper function to optionally get authenticated user from token
+ * Returns null if authentication fails instead of throwing
  */
-export function hasPermission(permission: 'admin' | 'teacher' | 'student'): boolean {
-    const user = getCurrentUser();
+export async function getOptionalAuthenticatedUser(authHeader?: string): Promise<User | null> {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return null;
+    }
+
+    try {
+        return await getAuthenticatedUser(authHeader);
+    } catch (error) {
+        return null;
+    }
+}
+
+/**
+ * Helper function to check if user has specific permissions
+ */
+export function hasPermission(user: User, permission: 'admin' | 'teacher' | 'student'): boolean {
     if (!user) return false;
 
     switch (permission) {
@@ -237,12 +259,36 @@ export function hasPermission(permission: 'admin' | 'teacher' | 'student'): bool
             return user.email.endsWith('@tusome.ke') || user.email === 'admin@tusome.com';
         case 'teacher':
             // You can add teacher role logic here
-            return user.email.includes('teacher') || hasPermission('admin');
+            return user.email.includes('teacher') || hasPermission(user, 'admin');
         case 'student':
             return true; // All authenticated users are students by default
         default:
             return false;
     }
+}
+
+/**
+ * Helper function to check if user has access to specific grade content
+ */
+export function hasGradeAccess(user: User, requiredGradeCategory: 'primary' | 'junior' | 'senior'): boolean {
+    return user.grade_category === requiredGradeCategory;
+}
+
+/**
+ * Helper function to validate subscription status
+ */
+export function hasActiveSubscription(user: User): boolean {
+    if (user.subscription_status === 'expired' || user.subscription_status === 'cancelled') {
+        return false;
+    }
+
+    // Check if trial has expired
+    if (user.subscription_status === 'trial' && user.trial_end_date) {
+        const now = new Date();
+        return now <= user.trial_end_date;
+    }
+
+    return user.subscription_status === 'active' || user.subscription_status === 'trial';
 }
 
 /**
@@ -255,14 +301,36 @@ export function createGradeMiddleware(requiredGradeCategory: 'primary' | 'junior
             target: { auth: true }
         },
         async (req, next) => {
-            const user = getCurrentUser();
+            let token: string | undefined;
+            let user: User | null = null;
+
+            // Try to get token from request data
+            if (req.data && typeof req.data === 'object' && 'authorization' in req.data) {
+                const authHeader = req.data.authorization as string;
+                if (authHeader && authHeader.startsWith('Bearer ')) {
+                    token = authHeader.substring(7);
+                }
+            }
+
+            if (!token) {
+                throw new APIError(ErrCode.Unauthenticated, "Authentication required");
+            }
+
+            try {
+                const claims: JWTClaims = verifyJWT(token);
+                if (claims.userID) {
+                    user = await getUserByID(claims.userID);
+                }
+            } catch (error) {
+                throw new APIError(ErrCode.Unauthenticated, "Authentication failed");
+            }
 
             if (!user) {
                 throw new APIError(ErrCode.Unauthenticated, "Authentication required");
             }
 
             // Check if user's grade category matches required category
-            if (user.grade_category !== requiredGradeCategory) {
+            if (!hasGradeAccess(user, requiredGradeCategory)) {
                 throw new APIError(
                     ErrCode.PermissionDenied,
                     `This content is only available for ${requiredGradeCategory} students`
@@ -289,15 +357,36 @@ export const adminMiddleware = middleware(
         target: { auth: true }
     },
     async (req, next) => {
-        const user = getCurrentUser();
+        let token: string | undefined;
+        let user: User | null = null;
+
+        // Try to get token from request data
+        if (req.data && typeof req.data === 'object' && 'authorization' in req.data) {
+            const authHeader = req.data.authorization as string;
+            if (authHeader && authHeader.startsWith('Bearer ')) {
+                token = authHeader.substring(7);
+            }
+        }
+
+        if (!token) {
+            throw new APIError(ErrCode.Unauthenticated, "Authentication required");
+        }
+
+        try {
+            const claims: JWTClaims = verifyJWT(token);
+            if (claims.userID) {
+                user = await getUserByID(claims.userID);
+            }
+        } catch (error) {
+            throw new APIError(ErrCode.Unauthenticated, "Authentication failed");
+        }
 
         if (!user) {
             throw new APIError(ErrCode.Unauthenticated, "Authentication required");
         }
 
         // Check if user has admin privileges
-        const isAdmin = user.email.endsWith('@tusome.ke') ||
-            user.email === 'admin@tusome.com';
+        const isAdmin = hasPermission(user, 'admin');
 
         if (!isAdmin) {
             throw new APIError(ErrCode.PermissionDenied, "Administrator access required");
