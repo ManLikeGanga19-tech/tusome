@@ -1,10 +1,31 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calculator, Book, Globe, Beaker, Palette, Crown, Users, Rocket, Target } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import DashboardHeader from '../components/DashboardHeader';
 import DashboardSidebar from '../components/DashboardSidebar';
 import DashboardMainContent from '../components/DashboardMainContent';
+
+// User interface to match sign-in page
+interface User {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    grade: string;
+    grade_category: 'primary' | 'junior' | 'senior';
+    grade_tier: 'Primary CBC' | 'Junior Secondary' | 'Senior Secondary';
+    profile_image?: string;
+    is_active: boolean;
+    email_verified: boolean;
+    trial_start_date?: Date;
+    trial_end_date?: Date;
+    subscription_status: 'trial' | 'active' | 'expired' | 'cancelled';
+    last_login_at?: Date;
+    created_at: Date;
+    updated_at: Date;
+}
 
 // Junior Secondary content configuration (Grade 7-9)
 const juniorContent = {
@@ -118,22 +139,68 @@ const juniorContent = {
     ]
 };
 
-// Mock user data for Junior level
-const juniorUser = {
-    name: "Grace Wanjiku",
-    email: "grace.wanjiku@student.ke",
-    subscription: "Junior Secondary",
-    tier: "junior" as const,
-    grade: "Grade 8",
-    profileImage: "/api/placeholder/40/40",
-    joinDate: "January 2025",
-    streakDays: 12,
-    totalPoints: 2450,
-    completedLessons: 45,
-    currentLevel: "Intermediate"
+// Custom hook to get authenticated user data
+function useAuthenticatedUser() {
+    const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
+    const router = useRouter();
+
+    useEffect(() => {
+        const checkAuthentication = () => {
+            try {
+                // Get user data from localStorage (set by sign-in page)
+                const userData = localStorage.getItem('user');
+                const token = localStorage.getItem('token');
+
+                if (!userData || !token) {
+                    console.log('No user data or token found, redirecting to sign-in');
+                    router.push('/auth/signin');
+                    return;
+                }
+
+                const parsedUser: User = JSON.parse(userData);
+
+                // Verify this is a junior user (grades 7-9)
+                if (parsedUser.grade_category !== 'junior') {
+                    console.log(`User is ${parsedUser.grade_category}, redirecting to appropriate dashboard`);
+                    router.push(`/dashboard/${parsedUser.grade_category}`);
+                    return;
+                }
+
+                setUser(parsedUser);
+            } catch (error) {
+                console.error('Error parsing user data:', error);
+                router.push('/auth/signin');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        checkAuthentication();
+    }, [router]);
+
+    return { user, loading };
+}
+
+// Mock user data for Junior level - fallback for your existing components
+const getJuniorUserData = (authenticatedUser: User) => {
+    return {
+        name: `${authenticatedUser.first_name} ${authenticatedUser.last_name}`,
+        email: authenticatedUser.email,
+        subscription: "Junior Secondary",
+        tier: "junior" as const,
+        grade: authenticatedUser.grade.replace('grade-', 'Grade '),
+        profileImage: authenticatedUser.profile_image || "/api/placeholder/40/40",
+        joinDate: new Date(authenticatedUser.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+        streakDays: 12,
+        totalPoints: 2450,
+        completedLessons: 45,
+        currentLevel: "Intermediate"
+    };
 };
 
 export default function JuniorDashboardPage() {
+    const { user, loading } = useAuthenticatedUser();
     const [searchQuery, setSearchQuery] = useState("");
 
     const handleSearch = (query: string) => {
@@ -141,10 +208,30 @@ export default function JuniorDashboardPage() {
         console.log("Searching Junior content for:", query);
     };
 
+    // Show loading state
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Loading your dashboard...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // User should be set by now due to redirect logic in hook
+    if (!user) {
+        return null;
+    }
+
+    // Get user data for components that need it
+    const juniorUser = getJuniorUserData(user);
+
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <DashboardHeader user={juniorUser} onSearch={handleSearch} />
+            {/* Header - only needs onSearch prop */}
+            <DashboardHeader onSearch={handleSearch} />
 
             {/* Main Layout */}
             <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
@@ -159,12 +246,21 @@ export default function JuniorDashboardPage() {
                                 </span>
                             </div>
                             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 flex items-center">
-                                Advancing Your Knowledge! <Rocket className="h-5 w-5 ml-2 text-green-600" />
+                                Welcome back, {user.first_name}! <Rocket className="h-5 w-5 ml-2 text-green-600" />
                             </h1>
                             <p className="text-sm sm:text-base text-gray-600">
                                 Exploring advanced concepts in Science, Mathematics, and Languages.
                                 Preparing for KPSEA and Senior Secondary transition.
                             </p>
+
+                            {/* Show demo account notice for demo users */}
+                            {user.email.includes('demo.junior@test.com') && (
+                                <div className="mt-3 p-2 bg-blue-100 border border-blue-200 rounded-lg">
+                                    <p className="text-xs text-blue-800">
+                                         Demo Account: You're exploring the Junior Secondary dashboard with sample progress data.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                         <div className="hidden sm:block ml-4">
                             <div className="w-16 h-16 sm:w-20 sm:h-20 bg-green-200 rounded-full flex items-center justify-center">
@@ -178,20 +274,13 @@ export default function JuniorDashboardPage() {
                     {/* Sidebar */}
                     <div className="lg:col-span-1">
                         <div className="sticky top-20 lg:top-24">
-                            <DashboardSidebar
-                                user={juniorUser}
-                                recentActivities={juniorContent.activities}
-                            />
+                            <DashboardSidebar />
                         </div>
                     </div>
 
                     {/* Main Content */}
                     <div className="lg:col-span-3">
-                        <DashboardMainContent
-                            user={juniorUser}
-                            subjectProgress={juniorContent.subjects}
-                            upcomingLessons={juniorContent.upcomingLessons}
-                        />
+                        <DashboardMainContent />
                     </div>
                 </div>
             </div>

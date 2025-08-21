@@ -82,6 +82,13 @@ const getGradeDisplayInfo = (gradeLevel: string) => {
   return gradeMap[gradeLevel] || null;
 };
 
+// Demo credentials for testing
+const demoAccounts = [
+  { email: 'demo.primary@test.com', password: 'demo123', type: 'Primary' },
+  { email: 'demo.junior@test.com', password: 'demo123', type: 'Junior' },
+  { email: 'demo.senior@test.com', password: 'demo123', type: 'Senior' }
+];
+
 // Custom hook for login functionality
 function useLogin() {
   const [loading, setLoading] = useState(false);
@@ -95,6 +102,43 @@ function useLogin() {
       console.log('🚀 Starting login process...');
       console.log('Login data:', { email: loginData.email, password: '[HIDDEN]' });
 
+      // Check if it's a demo account first
+      const isDemoAccount = demoAccounts.find(demo =>
+        demo.email === loginData.email && demo.password === loginData.password
+      );
+
+      if (isDemoAccount) {
+        console.log('✅ Demo account login');
+        // Simulate demo user response
+        const demoUser: User = {
+          id: 'demo-' + isDemoAccount.type.toLowerCase(),
+          first_name: 'Demo',
+          last_name: isDemoAccount.type + ' User',
+          email: loginData.email,
+          grade: isDemoAccount.type === 'Primary' ? 'grade-5' :
+            isDemoAccount.type === 'Junior' ? 'grade-8' : 'grade-11',
+          grade_category: isDemoAccount.type.toLowerCase() as 'primary' | 'junior' | 'senior',
+          grade_tier: isDemoAccount.type === 'Primary' ? 'Primary CBC' :
+            isDemoAccount.type === 'Junior' ? 'Junior Secondary' : 'Senior Secondary',
+          is_active: true,
+          email_verified: true,
+          subscription_status: 'trial',
+          created_at: new Date(),
+          updated_at: new Date()
+        };
+
+        const demoResponse: AuthResponse = {
+          user: demoUser,
+          token: 'demo-token-' + Date.now(),
+          refresh_token: 'demo-refresh-token-' + Date.now(),
+          expires_in: 3600,
+          message: 'Demo login successful'
+        };
+
+        return demoResponse;
+      }
+
+      // Otherwise, try actual backend login
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/login`, {
         method: 'POST',
         headers: {
@@ -148,6 +192,29 @@ function useUserLookup() {
     setLoading(true);
     try {
       console.log('Looking up user info for:', email);
+
+      // Check if it's a demo account first
+      const demoAccount = demoAccounts.find(demo => demo.email === email);
+      if (demoAccount) {
+        const demoUser: User = {
+          id: 'demo-' + demoAccount.type.toLowerCase(),
+          first_name: 'Demo',
+          last_name: demoAccount.type + ' User',
+          email: email,
+          grade: demoAccount.type === 'Primary' ? 'grade-5' :
+            demoAccount.type === 'Junior' ? 'grade-8' : 'grade-11',
+          grade_category: demoAccount.type.toLowerCase() as 'primary' | 'junior' | 'senior',
+          grade_tier: demoAccount.type === 'Primary' ? 'Primary CBC' :
+            demoAccount.type === 'Junior' ? 'Junior Secondary' : 'Senior Secondary',
+          is_active: true,
+          email_verified: true,
+          subscription_status: 'trial',
+          created_at: new Date(),
+          updated_at: new Date()
+        };
+        setUserInfo(demoUser);
+        return;
+      }
 
       // Create a lightweight endpoint call to check if user exists and get basic info
       // Since your backend doesn't have a public user lookup endpoint, we'll simulate
@@ -315,6 +382,18 @@ function SignInPage() {
     router.push('/auth/forgot-password');
   };
 
+  // Fill demo credentials
+  const fillDemoCredentials = (type: 'Primary' | 'Junior' | 'Senior') => {
+    const demo = demoAccounts.find(d => d.type === type);
+    if (demo) {
+      setFormData({
+        email: demo.email,
+        password: demo.password,
+        rememberMe: false
+      });
+    }
+  };
+
   const features = [
     {
       icon: BookMarked,
@@ -411,6 +490,26 @@ function SignInPage() {
             </CardHeader>
 
             <CardContent className="space-y-6">
+              {/* Demo Accounts Section */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm font-medium text-blue-900 mb-2">Demo Accounts</p>
+                <div className="grid grid-cols-3 gap-1">
+                  {demoAccounts.map((demo) => (
+                    <Button
+                      key={demo.type}
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => fillDemoCredentials(demo.type as 'Primary' | 'Junior' | 'Senior')}
+                      className="text-xs py-1 h-auto"
+                    >
+                      {demo.type}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-blue-700 mt-1">Email: demo.type@test.com | Pass: demo123</p>
+              </div>
+
               {/* Success Message - Fallback like signup page */}
               {successMessage && (
                 <Alert className="bg-green-50 border-green-200">
@@ -492,8 +591,8 @@ function SignInPage() {
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Grade Level:</span>
                         <Badge className={`text-xs ${userInfo.grade_category === 'junior' ? 'bg-green-100 text-green-800' :
-                            userInfo.grade_category === 'senior' ? 'bg-red-100 text-red-800' :
-                              'bg-blue-100 text-blue-800'
+                          userInfo.grade_category === 'senior' ? 'bg-red-100 text-red-800' :
+                            'bg-blue-100 text-blue-800'
                           }`}>
                           {getGradeDisplayInfo(userInfo.grade)?.label || userInfo.grade}
                         </Badge>
@@ -555,7 +654,7 @@ function SignInPage() {
                   <button
                     type="button"
                     onClick={handleForgotPassword}
-                    className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors duration-300"
+                    className="text-sm text-green-600 hover:text-green-700 font-medium transition-colors duration-300 bg-transparent border-none cursor-pointer"
                   >
                     Forgot password?
                   </button>

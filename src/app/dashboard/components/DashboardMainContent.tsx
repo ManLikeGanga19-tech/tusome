@@ -206,6 +206,11 @@ const contentAccess = {
     }
 };
 
+// Check if user is a demo account
+const isDemoAccount = (email: string): boolean => {
+    return email.includes('demo.') && email.includes('@test.com');
+};
+
 export default function DashboardMainContent() {
     const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
@@ -238,50 +243,89 @@ export default function DashboardMainContent() {
                         // Generate content based on user's grade category
                         setSubjectProgress(generateSubjectProgress(backendUser.grade_category));
                         setUpcomingLessons(generateUpcomingLessons(backendUser.grade_category));
+
+                        // For demo accounts, don't try to fetch from backend
+                        if (isDemoAccount(backendUser.email)) {
+                            console.log('Demo account detected, using stored data only');
+                            setIsLoading(false);
+                            return;
+                        }
                     } catch (parseError) {
                         console.error('Error parsing stored user data:', parseError);
                     }
                 }
 
-                // Fetch fresh user data from backend
-                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/profile`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${storedToken}`,
-                        'Content-Type': 'application/json',
-                    },
-                });
+                // Only fetch from backend for non-demo accounts
+                if (storedUser) {
+                    const userData = JSON.parse(storedUser);
+                    if (!isDemoAccount(userData.email)) {
+                        try {
+                            // Fetch fresh user data from backend
+                            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/profile`, {
+                                method: 'GET',
+                                headers: {
+                                    'Authorization': `Bearer ${storedToken}`,
+                                    'Content-Type': 'application/json',
+                                },
+                            });
 
-                if (response.ok) {
-                    const backendUser: BackendUser = await response.json();
+                            if (response.ok) {
+                                const backendUser: BackendUser = await response.json();
 
-                    // Update localStorage with fresh data
-                    localStorage.setItem('user', JSON.stringify(backendUser));
+                                // Update localStorage with fresh data
+                                localStorage.setItem('user', JSON.stringify(backendUser));
 
-                    // Transform and set user data
-                    const transformedUser = transformUserData(backendUser);
-                    setUser(transformedUser);
+                                // Transform and set user data
+                                const transformedUser = transformUserData(backendUser);
+                                setUser(transformedUser);
 
-                    // Generate content based on user's grade category
-                    setSubjectProgress(generateSubjectProgress(backendUser.grade_category));
-                    setUpcomingLessons(generateUpcomingLessons(backendUser.grade_category));
+                                // Generate content based on user's grade category
+                                setSubjectProgress(generateSubjectProgress(backendUser.grade_category));
+                                setUpcomingLessons(generateUpcomingLessons(backendUser.grade_category));
 
-                    console.log('Successfully fetched user profile for dashboard');
-                } else {
-                    console.error('Failed to fetch user profile:', response.status);
+                                console.log('Successfully fetched user profile for dashboard');
+                            } else {
+                                console.error('Failed to fetch user profile:', response.status);
 
-                    if (response.status === 401 || response.status === 403) {
-                        localStorage.removeItem('user');
-                        localStorage.removeItem('token');
-                        localStorage.removeItem('refresh_token');
-                        router.push('/auth/signin');
-                    } else {
-                        setError('Failed to load user profile');
+                                if (response.status === 401 || response.status === 403) {
+                                    localStorage.removeItem('user');
+                                    localStorage.removeItem('token');
+                                    localStorage.removeItem('refresh_token');
+                                    router.push('/auth/signin');
+                                } else {
+                                    setError('Failed to load user profile');
+                                }
+                            }
+                        } catch (fetchError) {
+                            console.error('Backend fetch error:', fetchError);
+                            // For real users, show error
+                            setError('Unable to connect to server');
+                        }
                     }
                 }
             } catch (error) {
                 console.error('Error fetching user data:', error);
-                setError('Error loading dashboard data');
+                const storedUser = localStorage.getItem('user');
+
+                // For demo accounts, don't show error - just use stored data
+                if (storedUser) {
+                    try {
+                        const userData = JSON.parse(storedUser);
+                        if (isDemoAccount(userData.email)) {
+                            console.log('Demo account - using stored data, ignoring fetch error');
+                            const transformedUser = transformUserData(userData);
+                            setUser(transformedUser);
+                            setSubjectProgress(generateSubjectProgress(userData.grade_category));
+                            setUpcomingLessons(generateUpcomingLessons(userData.grade_category));
+                        } else {
+                            setError('Error loading dashboard data');
+                        }
+                    } catch (parseError) {
+                        setError('Error loading dashboard data');
+                    }
+                } else {
+                    setError('Error loading dashboard data');
+                }
             } finally {
                 setIsLoading(false);
             }
@@ -370,15 +414,25 @@ export default function DashboardMainContent() {
                     <div className="flex-1">
                         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 flex items-center">
                             Welcome back, {user.name.split(' ')[0]}! <Smile className="h-5 w-5 ml-2 text-yellow-500" />
+                            {isDemoAccount(user.email) && (
+                                <span className="ml-2 text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                                    Demo Mode
+                                </span>
+                            )}
                         </h1>
                         <p className="text-sm sm:text-base text-gray-600 mb-4">
                             Ready to continue your {user.subscription} journey? You have {upcomingLessons.length} lessons waiting.
+                            {isDemoAccount(user.email) && (
+                                <span className="block text-xs text-blue-600 mt-1">
+                                    You're exploring sample content. Sign up for real to track your actual progress!
+                                </span>
+                            )}
                         </p>
                         <Button className={`${tierColor === 'blue' ? 'bg-blue-600 hover:bg-blue-700' :
                             tierColor === 'green' ? 'bg-green-600 hover:bg-green-700' :
                                 'bg-red-600 hover:bg-red-700'
                             } text-white text-sm sm:text-base h-9 sm:h-10`}>
-                            Continue Learning
+                            {isDemoAccount(user.email) ? 'Try Sample Lesson' : 'Continue Learning'}
                             <ChevronRight className="h-4 w-4 ml-2" />
                         </Button>
                     </div>
@@ -451,7 +505,7 @@ export default function DashboardMainContent() {
                                             'bg-red-600 hover:bg-red-700'
                                         } text-white text-xs sm:text-sm h-8 sm:h-9`} size="sm">
                                         <Play className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
-                                        Continue
+                                        {isDemoAccount(user.email) ? 'Try Sample' : 'Continue'}
                                     </Button>
                                 </div>
                             </CardContent>
@@ -495,8 +549,8 @@ export default function DashboardMainContent() {
                                         tierColor === 'green' ? 'bg-green-600 hover:bg-green-700' :
                                             'bg-red-600 hover:bg-red-700'
                                         } text-white text-xs sm:text-sm h-8 sm:h-10 px-3 sm:px-4 ml-3 flex-shrink-0`}>
-                                        <span className="hidden sm:inline">Join Lesson</span>
-                                        <span className="sm:hidden">Join</span>
+                                        <span className="hidden sm:inline">{isDemoAccount(user.email) ? 'Try Sample' : 'Join Lesson'}</span>
+                                        <span className="sm:hidden">{isDemoAccount(user.email) ? 'Try' : 'Join'}</span>
                                     </Button>
                                 </div>
                             </CardContent>
@@ -511,8 +565,12 @@ export default function DashboardMainContent() {
                     <CardContent className="p-4 sm:p-6 text-center">
                         <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 mx-auto mb-2" />
                         <h3 className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">This Week</h3>
-                        <p className="text-xl sm:text-2xl font-bold text-green-600">87%</p>
-                        <p className="text-xs sm:text-sm text-gray-500">Average Score</p>
+                        <p className="text-xl sm:text-2xl font-bold text-green-600">
+                            {isDemoAccount(user.email) ? '87%' : '87%'}
+                        </p>
+                        <p className="text-xs sm:text-sm text-gray-500">
+                            {isDemoAccount(user.email) ? 'Sample Score' : 'Average Score'}
+                        </p>
                     </CardContent>
                 </Card>
 
@@ -520,8 +578,12 @@ export default function DashboardMainContent() {
                     <CardContent className="p-4 sm:p-6 text-center">
                         <Clock className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 mx-auto mb-2" />
                         <h3 className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">Study Time</h3>
-                        <p className="text-xl sm:text-2xl font-bold text-blue-600">12.5</p>
-                        <p className="text-xs sm:text-sm text-gray-500">Hours This Week</p>
+                        <p className="text-xl sm:text-2xl font-bold text-blue-600">
+                            {isDemoAccount(user.email) ? '12.5' : '12.5'}
+                        </p>
+                        <p className="text-xs sm:text-sm text-gray-500">
+                            {isDemoAccount(user.email) ? 'Sample Hours' : 'Hours This Week'}
+                        </p>
                     </CardContent>
                 </Card>
 
@@ -529,11 +591,36 @@ export default function DashboardMainContent() {
                     <CardContent className="p-4 sm:p-6 text-center">
                         <Award className="h-6 w-6 sm:h-8 sm:w-8 text-purple-600 mx-auto mb-2" />
                         <h3 className="font-semibold text-gray-900 mb-1 text-sm sm:text-base">Rank</h3>
-                        <p className="text-xl sm:text-2xl font-bold text-purple-600">Top 15%</p>
-                        <p className="text-xs sm:text-sm text-gray-500">In Your Grade</p>
+                        <p className="text-xl sm:text-2xl font-bold text-purple-600">
+                            {isDemoAccount(user.email) ? 'Demo' : 'Top 15%'}
+                        </p>
+                        <p className="text-xs sm:text-sm text-gray-500">
+                            {isDemoAccount(user.email) ? 'Sample Data' : 'In Your Grade'}
+                        </p>
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Demo Account Notice */}
+            {isDemoAccount(user.email) && (
+                <Card className="border-blue-200 bg-blue-50">
+                    <CardContent className="p-4 sm:p-6 text-center">
+                        <div className="text-blue-600 mb-2">
+                            <h3 className="font-semibold"> Demo Mode Active</h3>
+                            <p className="text-sm">You're exploring sample content. Sign up for a real account to:</p>
+                        </div>
+                        <div className="text-xs text-blue-700 mb-4 space-y-1">
+                            <p>• Track your actual progress</p>
+                            <p>• Access personalized content</p>
+                            <p>• Sync across devices</p>
+                            <p>• Get certificates</p>
+                        </div>
+                        <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                            Create Real Account
+                        </Button>
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 }

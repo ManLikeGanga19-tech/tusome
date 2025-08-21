@@ -101,6 +101,11 @@ const transformUserData = (backendUser: BackendUser): User => {
     };
 };
 
+// Check if user is a demo account
+const isDemoAccount = (email: string): boolean => {
+    return email.includes('demo.') && email.includes('@test.com');
+};
+
 export default function DashboardHeader({ onSearch }: HeaderProps) {
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState("");
@@ -127,50 +132,86 @@ export default function DashboardHeader({ onSearch }: HeaderProps) {
                 }
 
                 if (storedUser) {
-                    // Use stored user data initially
                     try {
                         const backendUser: BackendUser = JSON.parse(storedUser);
-                        setUser(transformUserData(backendUser));
+                        const transformedUser = transformUserData(backendUser);
+                        setUser(transformedUser);
+
+                        // For demo accounts, don't try to fetch from backend
+                        if (isDemoAccount(backendUser.email)) {
+                            console.log('Demo account detected, using stored data only');
+                            setIsLoading(false);
+                            return;
+                        }
                     } catch (parseError) {
                         console.error('Error parsing stored user data:', parseError);
                     }
                 }
 
-                // Fetch fresh user data from backend
-                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/profile`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${storedToken}`,
-                        'Content-Type': 'application/json',
-                    },
-                });
+                // Only fetch from backend for non-demo accounts
+                if (storedUser) {
+                    const userData = JSON.parse(storedUser);
+                    if (!isDemoAccount(userData.email)) {
+                        try {
+                            // Fetch fresh user data from backend
+                            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/profile`, {
+                                method: 'GET',
+                                headers: {
+                                    'Authorization': `Bearer ${storedToken}`,
+                                    'Content-Type': 'application/json',
+                                },
+                            });
 
-                if (response.ok) {
-                    const backendUser: BackendUser = await response.json();
+                            if (response.ok) {
+                                const backendUser: BackendUser = await response.json();
 
-                    // Update localStorage with fresh data
-                    localStorage.setItem('user', JSON.stringify(backendUser));
+                                // Update localStorage with fresh data
+                                localStorage.setItem('user', JSON.stringify(backendUser));
 
-                    // Transform and set user data
-                    setUser(transformUserData(backendUser));
+                                // Transform and set user data
+                                setUser(transformUserData(backendUser));
 
-                    console.log('Successfully fetched user profile for header');
-                } else {
-                    console.error('Failed to fetch user profile:', response.status);
+                                console.log('Successfully fetched user profile for header');
+                            } else {
+                                console.error('Failed to fetch user profile:', response.status);
 
-                    if (response.status === 401 || response.status === 403) {
-                        // Token is invalid - clear storage and redirect
-                        localStorage.removeItem('user');
-                        localStorage.removeItem('token');
-                        localStorage.removeItem('refresh_token');
-                        router.push('/auth/signin');
-                    } else {
-                        setError('Failed to load user profile');
+                                if (response.status === 401 || response.status === 403) {
+                                    // Token is invalid - clear storage and redirect
+                                    localStorage.removeItem('user');
+                                    localStorage.removeItem('token');
+                                    localStorage.removeItem('refresh_token');
+                                    router.push('/auth/signin');
+                                } else {
+                                    setError('Failed to load user profile');
+                                }
+                            }
+                        } catch (fetchError) {
+                            console.error('Backend fetch error:', fetchError);
+                            // For real users, show error
+                            setError('Unable to connect to server');
+                        }
                     }
                 }
             } catch (error) {
                 console.error('Error fetching user data:', error);
-                setError('Error loading user profile');
+                const storedUser = localStorage.getItem('user');
+
+                // For demo accounts, don't show error - just use stored data
+                if (storedUser) {
+                    try {
+                        const userData = JSON.parse(storedUser);
+                        if (isDemoAccount(userData.email)) {
+                            console.log('Demo account - using stored data, ignoring fetch error');
+                            setUser(transformUserData(userData));
+                        } else {
+                            setError('Error loading user profile');
+                        }
+                    } catch (parseError) {
+                        setError('Error loading user profile');
+                    }
+                } else {
+                    setError('Error loading user profile');
+                }
             } finally {
                 setIsLoading(false);
             }
@@ -241,18 +282,22 @@ export default function DashboardHeader({ onSearch }: HeaderProps) {
         try {
             const token = localStorage.getItem('token');
             const refreshToken = localStorage.getItem('refresh_token');
+            const storedUser = localStorage.getItem('user');
 
-            // Call logout endpoint if token exists
-            if (token) {
+            // Only call logout endpoint for non-demo accounts
+            if (token && storedUser) {
                 try {
-                    await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/logout`, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${token}`,
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ refreshToken }),
-                    });
+                    const userData = JSON.parse(storedUser);
+                    if (!isDemoAccount(userData.email)) {
+                        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/logout`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ refreshToken }),
+                        });
+                    }
                 } catch (logoutError) {
                     console.error('Error calling logout endpoint:', logoutError);
                     // Continue with local cleanup even if API call fails
@@ -359,7 +404,9 @@ export default function DashboardHeader({ onSearch }: HeaderProps) {
                         <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 rounded-full px-3 py-1.5">
                             <Wifi className="h-4 w-4 text-green-600" />
                             <Battery className="h-4 w-4 text-green-600" />
-                            <span className="hidden lg:inline font-medium text-green-600">Online</span>
+                            <span className="hidden lg:inline font-medium text-green-600">
+                                {isDemoAccount(user.email) ? 'Demo Mode' : 'Online'}
+                            </span>
                         </div>
 
                         {/* Notifications */}
@@ -388,7 +435,9 @@ export default function DashboardHeader({ onSearch }: HeaderProps) {
                                     {/* User info - Hidden on mobile */}
                                     <div className="text-right hidden lg:block">
                                         <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                                        <p className="text-xs text-gray-500">{user.subscription}</p>
+                                        <p className="text-xs text-gray-500">
+                                            {isDemoAccount(user.email) ? `${user.subscription} (Demo)` : user.subscription}
+                                        </p>
                                     </div>
 
                                     {/* Avatar */}
@@ -421,6 +470,11 @@ export default function DashboardHeader({ onSearch }: HeaderProps) {
                                                 <span className="text-xs text-gray-500">
                                                     {user.currentLevel}
                                                 </span>
+                                                {isDemoAccount(user.email) && (
+                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-800">
+                                                        Demo
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

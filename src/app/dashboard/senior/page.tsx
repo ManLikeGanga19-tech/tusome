@@ -1,10 +1,31 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calculator, Book, Globe, Beaker, Crown, Microscope, Computer, Briefcase, GraduationCap } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import DashboardHeader from '../components/DashboardHeader';
 import DashboardSidebar from '../components/DashboardSidebar';
 import DashboardMainContent from '../components/DashboardMainContent';
+
+// User interface to match sign-in page
+interface User {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    grade: string;
+    grade_category: 'primary' | 'junior' | 'senior';
+    grade_tier: 'Primary CBC' | 'Junior Secondary' | 'Senior Secondary';
+    profile_image?: string;
+    is_active: boolean;
+    email_verified: boolean;
+    trial_start_date?: Date;
+    trial_end_date?: Date;
+    subscription_status: 'trial' | 'active' | 'expired' | 'cancelled';
+    last_login_at?: Date;
+    created_at: Date;
+    updated_at: Date;
+}
 
 // Senior Secondary content configuration (Grade 10-12)
 const seniorContent = {
@@ -126,22 +147,51 @@ const seniorContent = {
     ]
 };
 
-// Mock user data for Senior level
-const seniorUser = {
-    name: "Grace Mwangi",
-    email: "grace.mwangi@student.ke",
-    subscription: "Senior Secondary",
-    tier: "senior" as const,
-    grade: "Grade 12",
-    profileImage: "/api/placeholder/40/40",
-    joinDate: "January 2025",
-    streakDays: 18,
-    totalPoints: 3200,
-    completedLessons: 65,
-    currentLevel: "Advanced"
-};
+// Custom hook to get authenticated user data
+function useAuthenticatedUser() {
+    const [user, setUser] = useState<User | null>(null);
+    const [loading, setLoading] = useState(true);
+    const router = useRouter();
+
+    useEffect(() => {
+        const checkAuthentication = () => {
+            try {
+                // Get user data from localStorage (set by sign-in page)
+                const userData = localStorage.getItem('user');
+                const token = localStorage.getItem('token');
+
+                if (!userData || !token) {
+                    console.log('No user data or token found, redirecting to sign-in');
+                    router.push('/auth/signin');
+                    return;
+                }
+
+                const parsedUser: User = JSON.parse(userData);
+
+                // Verify this is a senior user (grades 10-12)
+                if (parsedUser.grade_category !== 'senior') {
+                    console.log(`User is ${parsedUser.grade_category}, redirecting to appropriate dashboard`);
+                    router.push(`/dashboard/${parsedUser.grade_category}`);
+                    return;
+                }
+
+                setUser(parsedUser);
+            } catch (error) {
+                console.error('Error parsing user data:', error);
+                router.push('/auth/signin');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        checkAuthentication();
+    }, [router]);
+
+    return { user, loading };
+}
 
 export default function SeniorDashboardPage() {
+    const { user, loading } = useAuthenticatedUser();
     const [searchQuery, setSearchQuery] = useState("");
 
     const handleSearch = (query: string) => {
@@ -149,10 +199,27 @@ export default function SeniorDashboardPage() {
         console.log("Searching Senior content for:", query);
     };
 
+    // Show loading state
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Loading your dashboard...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // User should be set by now due to redirect logic in hook
+    if (!user) {
+        return null;
+    }
+
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <DashboardHeader user={seniorUser} onSearch={handleSearch} />
+            {/* Header - only needs onSearch prop */}
+            <DashboardHeader onSearch={handleSearch} />
 
             {/* Main Layout */}
             <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
@@ -167,12 +234,21 @@ export default function SeniorDashboardPage() {
                                 </span>
                             </div>
                             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2 flex items-center">
-                                Mastering Advanced Concepts! <GraduationCap className="h-5 w-5 ml-2 text-red-600" />
+                                Welcome back, {user.first_name}! <GraduationCap className="h-5 w-5 ml-2 text-red-600" />
                             </h1>
                             <p className="text-sm sm:text-base text-gray-600">
                                 Specialized studies in Pure Sciences, Technical subjects, and Advanced Mathematics.
                                 KCSE preparation and university pathway planning.
                             </p>
+
+                            {/* Show demo account notice for demo users */}
+                            {user.email.includes('demo.senior@test.com') && (
+                                <div className="mt-3 p-2 bg-red-100 border border-red-200 rounded-lg">
+                                    <p className="text-xs text-red-800">
+                                         Demo Account: You're exploring the Senior Secondary dashboard with sample progress data.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                         <div className="hidden sm:block ml-4">
                             <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-200 rounded-full flex items-center justify-center">
@@ -186,20 +262,13 @@ export default function SeniorDashboardPage() {
                     {/* Sidebar */}
                     <div className="lg:col-span-1">
                         <div className="sticky top-20 lg:top-24">
-                            <DashboardSidebar
-                                user={seniorUser}
-                                recentActivities={seniorContent.activities}
-                            />
+                            <DashboardSidebar />
                         </div>
                     </div>
 
                     {/* Main Content */}
                     <div className="lg:col-span-3">
-                        <DashboardMainContent
-                            user={seniorUser}
-                            subjectProgress={seniorContent.subjects}
-                            upcomingLessons={seniorContent.upcomingLessons}
-                        />
+                        <DashboardMainContent />
                     </div>
                 </div>
             </div>

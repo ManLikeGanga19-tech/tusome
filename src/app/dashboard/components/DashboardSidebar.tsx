@@ -129,6 +129,11 @@ const contentAccess = {
     senior: { color: "red" }
 };
 
+// Check if user is a demo account
+const isDemoAccount = (email: string): boolean => {
+    return email.includes('demo.') && email.includes('@test.com');
+};
+
 export default function DashboardSidebar() {
     const router = useRouter();
     const [user, setUser] = useState<User | null>(null);
@@ -157,47 +162,85 @@ export default function DashboardSidebar() {
                         const transformedUser = transformUserData(backendUser);
                         setUser(transformedUser);
                         setRecentActivities(generateRecentActivities(transformedUser));
+
+                        // For demo accounts, don't try to fetch from backend
+                        if (isDemoAccount(backendUser.email)) {
+                            console.log('Demo account detected, using stored data only');
+                            setIsLoading(false);
+                            return;
+                        }
                     } catch (parseError) {
                         console.error('Error parsing stored user data:', parseError);
                     }
                 }
 
-                // Fetch fresh user data from backend
-                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/profile`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${storedToken}`,
-                        'Content-Type': 'application/json',
-                    },
-                });
+                // Only fetch from backend for non-demo accounts
+                if (storedUser) {
+                    const userData = JSON.parse(storedUser);
+                    if (!isDemoAccount(userData.email)) {
+                        try {
+                            // Fetch fresh user data from backend
+                            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/profile`, {
+                                method: 'GET',
+                                headers: {
+                                    'Authorization': `Bearer ${storedToken}`,
+                                    'Content-Type': 'application/json',
+                                },
+                            });
 
-                if (response.ok) {
-                    const backendUser: BackendUser = await response.json();
+                            if (response.ok) {
+                                const backendUser: BackendUser = await response.json();
 
-                    // Update localStorage with fresh data
-                    localStorage.setItem('user', JSON.stringify(backendUser));
+                                // Update localStorage with fresh data
+                                localStorage.setItem('user', JSON.stringify(backendUser));
 
-                    // Transform and set user data
-                    const transformedUser = transformUserData(backendUser);
-                    setUser(transformedUser);
-                    setRecentActivities(generateRecentActivities(transformedUser));
+                                // Transform and set user data
+                                const transformedUser = transformUserData(backendUser);
+                                setUser(transformedUser);
+                                setRecentActivities(generateRecentActivities(transformedUser));
 
-                    console.log('Successfully fetched user profile for sidebar');
-                } else {
-                    console.error('Failed to fetch user profile:', response.status);
+                                console.log('Successfully fetched user profile for sidebar');
+                            } else {
+                                console.error('Failed to fetch user profile:', response.status);
 
-                    if (response.status === 401 || response.status === 403) {
-                        localStorage.removeItem('user');
-                        localStorage.removeItem('token');
-                        localStorage.removeItem('refresh_token');
-                        router.push('/auth/signin');
-                    } else {
-                        setError('Failed to load user profile');
+                                if (response.status === 401 || response.status === 403) {
+                                    localStorage.removeItem('user');
+                                    localStorage.removeItem('token');
+                                    localStorage.removeItem('refresh_token');
+                                    router.push('/auth/signin');
+                                } else {
+                                    setError('Failed to load user profile');
+                                }
+                            }
+                        } catch (fetchError) {
+                            console.error('Backend fetch error:', fetchError);
+                            // For real users, show error
+                            setError('Unable to connect to server');
+                        }
                     }
                 }
             } catch (error) {
                 console.error('Error fetching user data:', error);
-                setError('Error loading sidebar data');
+                const storedUser = localStorage.getItem('user');
+
+                // For demo accounts, don't show error - just use stored data
+                if (storedUser) {
+                    try {
+                        const userData = JSON.parse(storedUser);
+                        if (isDemoAccount(userData.email)) {
+                            console.log('Demo account - using stored data, ignoring fetch error');
+                            const transformedUser = transformUserData(userData);
+                            setUser(transformedUser);
+                            setRecentActivities(generateRecentActivities(transformedUser));
+                        } else {
+                            setError('Error loading sidebar data');
+                        }
+                    } catch (parseError) {
+                        setError('Error loading sidebar data');
+                    }
+                } else {
+                    setError('Error loading sidebar data');
+                }
             } finally {
                 setIsLoading(false);
             }
@@ -317,7 +360,12 @@ export default function DashboardSidebar() {
                                 }`} />
                         </div>
                         <p className="font-semibold text-gray-900 text-sm sm:text-base">{user.currentLevel}</p>
-                        <p className="text-xs sm:text-sm text-gray-500">{user.grade}</p>
+                        <p className="text-xs sm:text-sm text-gray-500">
+                            {user.grade}
+                            {isDemoAccount(user.email) && (
+                                <span className="ml-1 text-yellow-600">(Demo)</span>
+                            )}
+                        </p>
                     </div>
 
                     <div className="space-y-2 sm:space-y-3">
@@ -393,18 +441,22 @@ export default function DashboardSidebar() {
             <Card>
                 <CardContent className="p-3 sm:p-4">
                     <div className="text-center">
-                        <p className="text-xs sm:text-sm font-medium text-gray-900 mb-1">{user.subscription}</p>
-                        {user.subscription.includes('Trial') && (
+                        <p className="text-xs sm:text-sm font-medium text-gray-900 mb-1">
+                            {isDemoAccount(user.email) ? `${user.subscription} (Demo)` : user.subscription}
+                        </p>
+                        {(user.subscription.includes('Trial') || isDemoAccount(user.email)) && (
                             <div>
-                                <p className="text-xs text-gray-500 mb-2">Upgrade to unlock more features</p>
+                                <p className="text-xs text-gray-500 mb-2">
+                                    {isDemoAccount(user.email) ? 'Demo mode - sample data' : 'Upgrade to unlock more features'}
+                                </p>
                                 <Button
                                     size="sm"
                                     className={`w-full text-xs h-7 ${tierColor === 'blue' ? 'bg-blue-600 hover:bg-blue-700' :
-                                            tierColor === 'green' ? 'bg-green-600 hover:bg-green-700' :
-                                                'bg-red-600 hover:bg-red-700'
+                                        tierColor === 'green' ? 'bg-green-600 hover:bg-green-700' :
+                                            'bg-red-600 hover:bg-red-700'
                                         } text-white`}
                                 >
-                                    Upgrade Now
+                                    {isDemoAccount(user.email) ? 'Try for Real' : 'Upgrade Now'}
                                 </Button>
                             </div>
                         )}
