@@ -1,0 +1,16 @@
+{
+  "name": "Tusome",
+  "short_name": "Tusome",
+  "description": "CBC e-learning platform for Kenyan students",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "icons": [
+    {
+      "src": "/next.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

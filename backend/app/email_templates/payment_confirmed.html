@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment Confirmed — Tusome</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:system-ui,-apple-system,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
+
+          <!-- Header -->
+          <tr>
+            <td align="center" style="padding-bottom:24px;">
+              <span style="font-size:28px;font-weight:700;color:#16a34a;letter-spacing:-0.5px;">Tusome</span>
+              <p style="margin:4px 0 0 0;font-size:13px;color:#6b7280;font-style:italic;">Jifunza. Kuelewa. Kufaulu.</p>
+            </td>
+          </tr>
+
+          <!-- Card -->
+          <tr>
+            <td style="background-color:#ffffff;border-radius:8px;padding:40px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+
+              <!-- Success banner -->
+              <div style="background-color:#16a34a;border-radius:6px;padding:20px;text-align:center;margin-bottom:28px;">
+                <p style="margin:0;font-size:22px;">&#10003;</p>
+                <p style="margin:6px 0 0 0;font-size:18px;font-weight:700;color:#ffffff;">Payment Confirmed!</p>
+              </div>
+
+              <h1 style="margin:0 0 8px 0;font-size:22px;font-weight:700;color:#111827;">
+                You're all set, {{first_name}}!
+              </h1>
+              <p style="margin:0 0 24px 0;font-size:15px;color:#6b7280;">
+                Thank you for subscribing to Tusome. Your payment has been received and your subscription is now active.
+              </p>
+
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px 0;" />
+
+              <!-- Receipt Table -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;">
+                <tr style="background-color:#f9fafb;">
+                  <td colspan="2" style="padding:12px 16px;font-size:13px;font-weight:600;color:#374151;border-bottom:1px solid #e5e7eb;">
+                    Subscription Summary
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:12px 16px;font-size:14px;color:#6b7280;border-bottom:1px solid #e5e7eb;">Plan</td>
+                  <td style="padding:12px 16px;font-size:14px;color:#111827;font-weight:600;border-bottom:1px solid #e5e7eb;text-align:right;">{{plan}}</td>
+                </tr>
+                <tr>
+                  <td style="padding:12px 16px;font-size:14px;color:#6b7280;border-bottom:1px solid #e5e7eb;">Amount Paid</td>
+                  <td style="padding:12px 16px;font-size:14px;color:#111827;font-weight:600;border-bottom:1px solid #e5e7eb;text-align:right;">KSh {{amount_ksh}}</td>
+                </tr>
+                <tr>
+                  <td style="padding:12px 16px;font-size:14px;color:#6b7280;">Subscription Active Until</td>
+                  <td style="padding:12px 16px;font-size:14px;color:#111827;font-weight:600;text-align:right;">{{ends_at}}</td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 28px 0;font-size:15px;color:#374151;line-height:1.6;">
+                Your full access is unlocked — dive into lessons, practice exercises, and track your progress across all CBC subjects. We're rooting for you!
+              </p>
+
+              <!-- CTA Button -->
+              <div style="text-align:center;margin:0 0 8px 0;">
+                <a href="https://tusome.co.ke/dashboard"
+                   style="display:inline-block;background-color:#16a34a;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:12px 28px;border-radius:6px;letter-spacing:0.2px;">
+                  Continue Learning
+                </a>
+              </div>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding:24px 0 0 0;">
+              <p style="margin:0 0 4px 0;font-size:12px;color:#9ca3af;">
+                &copy; 2025 Tusome. All rights reserved.
+              </p>
+              <p style="margin:0;font-size:12px;color:#9ca3af;">
+                This is your payment confirmation receipt. Please keep it for your records.
+                <br />Questions? Reach us at <a href="mailto:support@tusome.co.ke" style="color:#16a34a;text-decoration:none;">support@tusome.co.ke</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
