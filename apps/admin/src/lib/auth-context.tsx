@@ -68,7 +68,7 @@ export function AdminAuthProvider({ children }: { children: ReactNode }) {
     setCookie("tusome_admin_token", access_token, 1);
     adminAPI.setToken(access_token);
     setAdmin(adminData);
-    router.push("/");
+    router.push("/dashboard");
   }, [router]);
 
   const logout = useCallback(() => {

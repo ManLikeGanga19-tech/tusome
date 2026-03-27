@@ -36,6 +36,16 @@ export interface PaymentStatus {
     trial_end_date: string | null;
 }
 
+export interface PaymentHistoryItem {
+    id: string;
+    plan: string;
+    grade_tier: string;
+    amount_ksh: number;
+    status: string;
+    starts_at: string;
+    ends_at: string;
+}
+
 export const paymentsApi = {
     subscribe: (body: StkPushRequest) =>
         apiRequest<StkPushResponse>('/payments/subscribe', {
@@ -48,6 +58,9 @@ export const paymentsApi = {
 
     getStatus: () =>
         apiRequest<PaymentStatus>('/payments/status'),
+
+    getHistory: () =>
+        apiRequest<PaymentHistoryItem[]>('/payments/history'),
 };
 
 // ── Pricing table (mirrors backend TIER_PRICES) ──────────────────────────

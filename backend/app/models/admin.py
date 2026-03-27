@@ -4,6 +4,7 @@ from sqlalchemy import String, Boolean, DateTime, Text, ForeignKey, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
+from typing import TYPE_CHECKING
 
 
 class AdminUser(Base):
@@ -32,6 +33,9 @@ class AdminUser(Base):
     audit_logs: Mapped[list["AuditLog"]] = relationship(
         back_populates="admin", cascade="all, delete-orphan"
     )
+    sessions: Mapped[list["AdminSession"]] = relationship(
+        back_populates="admin", cascade="all, delete-orphan"
+    )
 
 
 class AuditLog(Base):
@@ -54,3 +58,26 @@ class AuditLog(Base):
     )
 
     admin: Mapped["AdminUser"] = relationship(back_populates="audit_logs")
+
+
+class AdminSession(Base):
+    __tablename__ = "admin_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    admin_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("admin_users.id", ondelete="CASCADE"), index=True
+    )
+    # JWT ID (jti claim) — used to revoke individual tokens
+    jti: Mapped[str] = mapped_column(String(36), unique=True, index=True)
+    ip_address: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), index=True
+    )
+    last_active_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    admin: Mapped["AdminUser"] = relationship(back_populates="sessions")

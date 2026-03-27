@@ -77,7 +77,9 @@ class PaymentService:
         if not amount:
             raise BadRequestError("Invalid plan for your grade tier")
 
-        # Idempotency: block if a pending transaction already exists for this user + plan
+        # Idempotency: block if a pending transaction exists for this user + plan
+        # within the last 5 minutes (avoids blocking forever on stuck transactions)
+        five_min_ago = datetime.now(timezone.utc) - timedelta(minutes=5)
         existing = await self.db.execute(
             select(PaymentTransaction)
             .join(Subscription)
@@ -85,12 +87,13 @@ class PaymentService:
                 Subscription.user_id == user.id,
                 Subscription.plan == body.plan,
                 PaymentTransaction.status == "pending",
+                PaymentTransaction.created_at >= five_min_ago,
             )
         )
         if existing.scalar_one_or_none():
             raise BadRequestError(
                 "A payment is already pending for this plan. "
-                "Check your phone for the M-Pesa prompt or wait a minute and try again."
+                "Check your phone for the M-Pesa prompt or wait a moment and try again."
             )
 
         access_token = await self._get_access_token()

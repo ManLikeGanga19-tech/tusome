@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.config import settings
 from app.core.security import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 from app.core.exceptions import BadRequestError, UnauthorizedError, ConflictError, NotFoundError
-from app.models.user import User, RefreshToken, EmailVerificationToken, PasswordResetToken, UserActivity
+from app.models.user import User, RefreshToken, EmailVerificationToken, PasswordResetToken, UserActivity, UserPreferences, DEFAULT_PREFS
 from app.schemas.auth import RegisterRequest, LoginRequest
 from app.schemas.auth import MessageResponse
 from app.schemas.user import AuthResponse, UserResponse
@@ -50,6 +50,58 @@ def _build_auth_response(user: User, message: str) -> AuthResponse:
 class AuthService:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    # ── Profile & password ────────────────────────────────────────────────
+
+    async def update_profile(self, user: User, body) -> User:
+        """Update editable profile fields (first_name, last_name, profile_image)."""
+        if body.first_name is not None:
+            user.first_name = body.first_name.strip()
+        if body.last_name is not None:
+            user.last_name = body.last_name.strip()
+        if body.profile_image is not None:
+            user.profile_image = body.profile_image
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user
+
+    async def change_password(self, user: User, current_password: str, new_password: str) -> None:
+        """Verify current password then save the new hash."""
+        if not verify_password(current_password, user.password_hash):
+            raise BadRequestError("Current password is incorrect")
+        user.password_hash = hash_password(new_password)
+        await self.db.commit()
+
+    async def get_preferences(self, user: User) -> UserPreferences:
+        """Return the user's preferences row, creating it with defaults if missing."""
+        result = await self.db.execute(
+            select(UserPreferences).where(UserPreferences.user_id == user.id)
+        )
+        row = result.scalar_one_or_none()
+        if not row:
+            import copy
+            row = UserPreferences(user_id=user.id, prefs=copy.deepcopy(DEFAULT_PREFS))
+            self.db.add(row)
+            await self.db.commit()
+            await self.db.refresh(row)
+        return row
+
+    async def update_preferences(self, user: User, prefs: dict) -> UserPreferences:
+        """Merge incoming prefs dict over existing prefs and save."""
+        row = await self.get_preferences(user)
+        import copy
+        merged = copy.deepcopy(row.prefs)
+        for key, val in prefs.items():
+            if isinstance(val, dict) and isinstance(merged.get(key), dict):
+                merged[key].update(val)
+            else:
+                merged[key] = val
+        row.prefs = merged
+        await self.db.commit()
+        await self.db.refresh(row)
+        return row
+
+    # ── Registration & login ──────────────────────────────────────────────
 
     async def register(self, body: RegisterRequest, request: Request) -> AuthResponse:
         if not body.agree_terms:

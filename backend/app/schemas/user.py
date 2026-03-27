@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 
 
@@ -33,6 +33,21 @@ class AuthResponse(BaseModel):
 
 
 class UpdateProfileRequest(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
+    first_name: Optional[str] = Field(None, min_length=1, max_length=50)
+    last_name: Optional[str] = Field(None, min_length=1, max_length=50)
     profile_image: Optional[str] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class PreferencesResponse(BaseModel):
+    prefs: dict
+
+    model_config = {"from_attributes": True}
+
+
+class UpdatePreferencesRequest(BaseModel):
+    prefs: dict

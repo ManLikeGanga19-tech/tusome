@@ -43,3 +43,14 @@ class LessonResponse(BaseModel):
 
 class LessonDetailResponse(LessonResponse):
     content: Optional[str]
+
+
+class SearchResultResponse(BaseModel):
+    id: uuid.UUID
+    subject_id: uuid.UUID
+    subject_name: str
+    title: str
+    slug: str
+    description: Optional[str] = None
+    duration_minutes: int
+    is_free_preview: bool

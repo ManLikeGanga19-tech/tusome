@@ -10,7 +10,7 @@ from app.schemas.auth import (
     ForgotPasswordRequest, ResetPasswordRequest, VerifyEmailRequest, MessageResponse,
     UserLookupRequest,
 )
-from app.schemas.user import AuthResponse, UserResponse, UpdateProfileRequest
+from app.schemas.user import AuthResponse, UserResponse, UpdateProfileRequest, ChangePasswordRequest, PreferencesResponse, UpdatePreferencesRequest
 from app.services.auth_service import AuthService
 from app.models.user import User
 
@@ -60,6 +60,48 @@ async def verify_email(body: VerifyEmailRequest, db: AsyncSession = Depends(get_
     return await AuthService(db).verify_email(body.token)
 
 
+@router.patch("/profile", response_model=UserResponse)
+async def update_profile(
+    body: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update the authenticated user's first/last name or profile image."""
+    return await AuthService(db).update_profile(current_user, body)
+
+
+@router.post("/change-password", response_model=MessageResponse)
+async def change_password(
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Change password after verifying the current one."""
+    await AuthService(db).change_password(current_user, body.current_password, body.new_password)
+    return MessageResponse(message="Password changed successfully")
+
+
 @router.post("/user-lookup")
 async def user_lookup(body: UserLookupRequest, db: AsyncSession = Depends(get_db)):
     return await AuthService(db).user_lookup(body.email)
+
+
+@router.get("/preferences", response_model=PreferencesResponse)
+async def get_preferences(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the authenticated user's saved preferences."""
+    row = await AuthService(db).get_preferences(current_user)
+    return PreferencesResponse(prefs=row.prefs)
+
+
+@router.patch("/preferences", response_model=PreferencesResponse)
+async def update_preferences(
+    body: UpdatePreferencesRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Merge and save updated preferences for the authenticated user."""
+    row = await AuthService(db).update_preferences(current_user, body.prefs)
+    return PreferencesResponse(prefs=row.prefs)

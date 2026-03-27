@@ -37,9 +37,20 @@ export interface LessonDetail extends Lesson {
     content: string | null;
 }
 
+export interface SearchResult {
+    id: string;
+    subject_id: string;
+    subject_name: string;
+    title: string;
+    slug: string;
+    description: string | null;
+    duration_minutes: number;
+    is_free_preview: boolean;
+}
+
 export const contentApi = {
     getSubjects: () => apiRequest<Subject[]>('/content/subjects'),
     getLessons: (slug: string) => apiRequest<Lesson[]>(`/content/subjects/${slug}/lessons`),
     getLesson: (lessonId: string) => apiRequest<LessonDetail>(`/content/lessons/${lessonId}`),
-    search: (q: string) => apiRequest<Lesson[]>(`/content/search?q=${encodeURIComponent(q)}`),
+    search: (q: string) => apiRequest<SearchResult[]>(`/content/search?q=${encodeURIComponent(q)}`),
 };

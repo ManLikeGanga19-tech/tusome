@@ -4,7 +4,7 @@ from typing import List
 
 from app.database import get_db
 from app.api.deps import get_current_user, get_current_active_subscriber
-from app.schemas.content import SubjectResponse, LessonResponse, LessonDetailResponse
+from app.schemas.content import SubjectResponse, LessonResponse, LessonDetailResponse, SearchResultResponse
 from app.services.content_service import ContentService
 from app.models.user import User
 
@@ -37,7 +37,7 @@ async def get_lesson(
     return await ContentService(db).get_lesson_detail(lesson_id, current_user)
 
 
-@router.get("/search", response_model=List[LessonResponse])
+@router.get("/search", response_model=List[SearchResultResponse])
 async def search_content(
     q: str = Query(..., min_length=2),
     current_user: User = Depends(get_current_active_subscriber),

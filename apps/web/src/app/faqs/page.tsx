@@ -1,13 +1,12 @@
 'use client'
 
-import { BookOpen, Search, Plus, Minus, HelpCircle, Users, CreditCard, Smartphone, Wifi, GraduationCap, MessageCircle, Mail, Phone, ChevronRight } from 'lucide-react';
-import React, { useState } from 'react'
+import { BookOpen, Search, Plus, Minus, HelpCircle, Users, CreditCard, Smartphone, GraduationCap, MessageCircle, Mail, Phone, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
     Card,
     CardContent,
-    CardDescription,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card"
@@ -18,10 +17,25 @@ import {
     CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api/v1';
+
+interface Faq {
+    id: string;
+    question: string;
+    answer: string;
+    category: string;
+    display_order: number;
+    is_published: boolean;
+    created_at: string;
+}
+
 function FAQsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState('all');
-    const [openFAQs, setOpenFAQs] = useState<number[]>([]);
+    const [openFAQs, setOpenFAQs] = useState<string[]>([]);
+    const [faqs, setFaqs] = useState<Faq[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     const categories = [
         { id: 'all', label: 'All Questions', icon: HelpCircle },
@@ -29,142 +43,45 @@ function FAQsPage() {
         { id: 'payments', label: 'Payments & Pricing', icon: CreditCard },
         { id: 'technical', label: 'Technical Support', icon: Smartphone },
         { id: 'cbc-curriculum', label: 'CBC Curriculum', icon: BookOpen },
-        { id: 'account', label: 'Account & Access', icon: Users }
+        { id: 'account', label: 'Account & Access', icon: Users },
     ];
 
-    const faqs = [
-        {
-            id: 1,
-            category: 'getting-started',
-            question: "What is Tusome and how does it work?",
-            answer: "Tusome is Kenya's leading educational platform designed specifically for the CBC curriculum. We provide interactive lessons, assessments, and learning materials for students from Grade 1 to Grade 12. Our platform works on any device - smartphones, tablets, or computers - and is optimized for Kenya's internet conditions. Simply sign up, choose your grade level, and start learning with content aligned to the CBC system.",
-            tags: ["platform", "CBC", "how it works", "introduction"]
-        },
-        {
-            id: 2,
-            category: 'getting-started',
-            question: "Which grades and subjects does Tusome cover?",
-            answer: "Tusome covers all CBC levels: Primary (Grade 1-6), Junior Secondary (Grade 7-9), and Senior Secondary (Grade 10-12). We offer content for all 12 CBC learning areas including Mathematics, English, Kiswahili, Science & Technology, Social Studies, Creative Arts, Physical & Health Education, and more. Our content is continuously updated to match the latest CBC curriculum guidelines.",
-            tags: ["grades", "subjects", "CBC learning areas", "curriculum"]
-        },
-        {
-            id: 3,
-            category: 'payments',
-            question: "How much does Tusome cost and what payment methods do you accept?",
-            answer: "Tusome offers affordable pricing starting from KES 299 per month for basic access, KES 599 for premium features, and KES 999 for our complete package with additional resources. We accept M-Pesa, Airtel Money, bank transfers, and debit/credit cards. You can also pay termly or annually for better value. We believe quality education should be accessible to all Kenyan families.",
-            tags: ["pricing", "cost", "M-Pesa", "payment methods", "affordable"]
-        },
-        {
-            id: 4,
-            category: 'payments',
-            question: "Can I pay using M-Pesa and how does it work?",
-            answer: "Yes! M-Pesa is our most popular payment method. Simply go to your account settings, select M-Pesa payment, and follow the prompts. You'll receive an M-Pesa message on your phone to complete the payment. The process takes less than 2 minutes, and your account is activated immediately after successful payment. You can also set up automatic monthly payments for convenience.",
-            tags: ["M-Pesa", "mobile money", "payment process", "automatic payments"]
-        },
-        {
-            id: 5,
-            category: 'technical',
-            question: "Will Tusome work on my phone and with slow internet?",
-            answer: "Absolutely! Tusome is designed specifically for Kenyan internet conditions. Our platform works on any smartphone (Android or iPhone), tablet, or computer. We've optimized our content to load quickly even on 2G/3G networks. Lessons use minimal data, and you can adjust video quality based on your connection speed. We recommend at least 1GB of data per month for regular use.",
-            tags: ["mobile compatibility", "slow internet", "data usage", "2G 3G networks"]
-        },
-        {
-            id: 6,
-            category: 'technical',
-            question: "What if I have no internet connection? Can I still use Tusome?",
-            answer: "While Tusome is primarily an online platform, we understand connectivity challenges in Kenya. Once you've accessed lessons with internet, some content remains available for a short time. We also provide downloadable study materials and worksheets that you can access offline. For areas with very limited connectivity, we recommend accessing content when internet is available and taking notes for offline study.",
-            tags: ["offline access", "no internet", "downloadable content", "connectivity issues"]
-        },
-        {
-            id: 7,
-            category: 'cbc-curriculum',
-            question: "How does Tusome align with the CBC curriculum?",
-            answer: "Tusome is 100% aligned with Kenya's CBC curriculum. Our content is developed by certified CBC educators and follows the official curriculum designs from KICD (Kenya Institute of Curriculum Development). We cover all competency areas, learning outcomes, and assessment criteria. Our lessons are structured according to CBC's learner-centered approach, emphasizing practical skills and real-world application.",
-            tags: ["CBC alignment", "KICD", "curriculum compliance", "competency-based"]
-        },
-        {
-            id: 8,
-            category: 'cbc-curriculum',
-            question: "How are assessments conducted on Tusome?",
-            answer: "Our assessments follow the CBC continuous assessment model. Instead of traditional exams, we provide formative and summative assessments that test competencies and practical skills. Students complete projects, quizzes, and interactive tasks that mirror CBC evaluation methods. Parents and teachers can track progress through detailed reports showing competency development across all learning areas.",
-            tags: ["CBC assessment", "continuous evaluation", "competency testing", "progress tracking"]
-        },
-        {
-            id: 9,
-            category: 'account',
-            question: "Can multiple children use one Tusome account?",
-            answer: "Yes! Our family plans allow up to 4 children to use one account. Each child gets their own profile with grade-appropriate content and individual progress tracking. Parents can easily switch between children's profiles and monitor each child's learning journey. This makes Tusome very cost-effective for families with multiple school-going children.",
-            tags: ["family account", "multiple children", "individual profiles", "cost-effective"]
-        },
-        {
-            id: 10,
-            category: 'account',
-            question: "How do I track my child's progress on Tusome?",
-            answer: "Tusome provides comprehensive progress tracking through our parent dashboard. You can see detailed reports on your child's performance across all learning areas, time spent studying, completed assignments, and areas needing improvement. We send weekly progress summaries via SMS and email. Teachers can also access student progress if given permission by parents.",
-            tags: ["progress tracking", "parent dashboard", "performance reports", "weekly summaries"]
-        },
-        {
-            id: 11,
-            category: 'getting-started',
-            question: "Do you offer content in both English and Kiswahili?",
-            answer: "Yes! Understanding Kenya's linguistic diversity, Tusome offers content in both English and Kiswahili. Lower primary content (Grade 1-3) includes more Kiswahili to support mother tongue learning as recommended by CBC. Upper grades focus more on English while maintaining Kiswahili language lessons. Students can also switch between languages for better understanding of concepts.",
-            tags: ["bilingual content", "English", "Kiswahili", "mother tongue", "language switching"]
-        },
-        {
-            id: 12,
-            category: 'technical',
-            question: "What technical requirements do I need to use Tusome?",
-            answer: "Tusome has minimal technical requirements: any smartphone with Android 6.0+ or iOS 12+, or a computer with an internet browser. You need at least 1GB RAM and 500MB storage space. For internet, even basic 2G connections work, though 3G or 4G provides the best experience. No special software installation is required - everything works through your web browser.",
-            tags: ["technical requirements", "device compatibility", "system requirements", "browser-based"]
-        },
-        {
-            id: 13,
-            category: 'payments',
-            question: "Is there a free trial available?",
-            answer: "Yes! Tusome offers a 7-day free trial for new users. During the trial, you get full access to all features and content for your selected grade level. No payment is required to start the trial - just sign up with your phone number. After the trial, you can choose a subscription plan that works for your family's budget and needs.",
-            tags: ["free trial", "7 days", "no payment required", "full access"]
-        },
-        {
-            id: 14,
-            category: 'cbc-curriculum',
-            question: "How do you handle students transitioning between grades?",
-            answer: "Tusome makes grade transitions smooth and stress-free. For major transitions like Grade 6 to 7 (Primary to Junior Secondary), we provide special transition modules that prepare students for new learning areas and assessment methods. Students can access content from their previous grade for review and preview upcoming grade content. Our system automatically adjusts content as students progress.",
-            tags: ["grade transition", "Grade 6 to 7", "transition modules", "content progression"]
-        },
-        {
-            id: 15,
-            category: 'account',
-            question: "Can teachers use Tusome for classroom teaching?",
-            answer: "Absolutely! Many teachers across Kenya use Tusome to enhance their classroom instruction. We offer special educator accounts with additional features like lesson planning tools, student management, and classroom presentation modes. Teachers can project lessons using smartphones and basic projectors. We also provide training resources to help teachers integrate digital content into their CBC teaching methods.",
-            tags: ["teachers", "classroom use", "educator accounts", "lesson planning", "teacher training"]
-        },
-        {
-            id: 16,
-            category: 'technical',
-            question: "What should I do if Tusome is not loading or working properly?",
-            answer: "First, check your internet connection and try refreshing the page. Clear your browser cache or restart your app. If problems persist, try switching to a different network or reducing video quality in settings. For continued issues, contact our support team via WhatsApp (+254 700 123 456), email (support@tusome.co.ke), or the in-app help feature. Our technical team responds within 2 hours during business hours.",
-            tags: ["troubleshooting", "technical issues", "support contact", "loading problems"]
+    useEffect(() => {
+        async function fetchFaqs() {
+            setLoading(true);
+            setError(null);
+            try {
+                const res = await fetch(`${API_BASE}/public/faqs`);
+                if (!res.ok) throw new Error('Failed to load FAQs');
+                const data: Faq[] = await res.json();
+                setFaqs(data);
+            } catch {
+                setError('Could not load FAQs. Please try again later.');
+            } finally {
+                setLoading(false);
+            }
         }
-    ];
+        fetchFaqs();
+    }, []);
 
-    // Filter FAQs based on search and category
     const filteredFAQs = faqs.filter(faq => {
-        const matchesSearch = faq.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            faq.answer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            faq.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+        const matchesSearch = !searchTerm ||
+            faq.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            faq.answer.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCategory = selectedCategory === 'all' || faq.category === selectedCategory;
         return matchesSearch && matchesCategory;
     });
 
-    const toggleFAQ = (id: number) => {
+    const toggleFAQ = (id: string) => {
         setOpenFAQs(prev =>
-            prev.includes(id)
-                ? prev.filter(faqId => faqId !== id)
-                : [...prev, id]
+            prev.includes(id) ? prev.filter(faqId => faqId !== id) : [...prev, id]
         );
     };
 
-    const popularFAQs = faqs.filter(faq => [1, 3, 5, 7, 9, 13].includes(faq.id));
+    // Top 6 FAQs (by display_order) shown as cards before the full list
+    const popularFAQs = [...faqs]
+        .sort((a, b) => a.display_order - b.display_order)
+        .slice(0, 6);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50">
@@ -200,163 +117,177 @@ function FAQsPage() {
                 </div>
             </section>
 
-            {/* Popular FAQs */}
-            {!searchTerm && selectedCategory === 'all' && (
-                <section className="py-12 sm:py-16 lg:py-20 px-4">
-                    <div className="max-w-6xl mx-auto">
-                        <h2 className="text-2xl sm:text-3xl font-bold text-center text-gray-900 mb-8 sm:mb-12 lg:mb-16">
-                            Most Asked Questions
-                        </h2>
-
-                        <div className="grid gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-3">
-                            {popularFAQs.map((faq) => (
-                                <Card key={faq.id} className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-white/90 backdrop-blur-sm group cursor-pointer transform hover:-translate-y-1">
-                                    <CardContent className="p-6 sm:p-8">
-                                        <div className="flex items-start justify-between mb-4 sm:mb-6">
-                                            <Badge variant="outline" className="border-green-200 text-green-600 text-xs px-2 sm:px-3 py-1 text-center">
-                                                {categories.find(cat => cat.id === faq.category)?.label}
-                                            </Badge>
-                                            <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
-                                        </div>
-
-                                        <h3 className="font-semibold text-gray-900 mb-3 sm:mb-4 group-hover:text-green-600 transition-colors line-clamp-3 text-base sm:text-lg leading-tight">
-                                            {faq.question}
-                                        </h3>
-
-                                        <p className="text-gray-600 text-sm leading-relaxed line-clamp-3 mb-4 sm:mb-6">
-                                            {faq.answer}
-                                        </p>
-
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            className="text-green-600 hover:text-green-700 hover:bg-green-50 p-0 h-auto font-medium transition-all duration-200 text-sm"
-                                            onClick={() => toggleFAQ(faq.id)}
-                                        >
-                                            Read Full Answer
-                                            <ChevronRight className="h-3 w-3 ml-1 sm:ml-2" />
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </div>
-                    </div>
-                </section>
+            {/* Loading / Error */}
+            {loading && (
+                <div className="flex justify-center items-center py-24">
+                    <Loader2 className="h-8 w-8 animate-spin text-green-600" />
+                </div>
             )}
 
-            {/* Category Filter */}
-            <section className="py-8 sm:py-12 px-4">
-                <div className="max-w-6xl mx-auto">
-                    <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-center gap-2 sm:gap-4 mb-8 sm:mb-12 lg:mb-16">
-                        {categories.map((category) => (
-                            <Button
-                                key={category.id}
-                                onClick={() => setSelectedCategory(category.id)}
-                                variant={selectedCategory === category.id ? "default" : "outline"}
-                                className={`px-3 sm:px-6 py-2 sm:py-3 transition-all duration-300 text-xs sm:text-sm ${selectedCategory === category.id
-                                    ? 'bg-green-600 text-white hover:bg-green-700 shadow-lg'
-                                    : 'border-green-200 text-green-600 hover:bg-green-50 hover:border-green-300'
-                                    }`}
-                                size="sm"
-                            >
-                                <category.icon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-3" />
-                                <span className="hidden sm:inline">{category.label}</span>
-                                <span className="sm:hidden">{category.label.split(' ')[0]}</span>
-                            </Button>
-                        ))}
+            {error && (
+                <div className="max-w-2xl mx-auto px-4 py-8">
+                    <div className="flex items-center gap-3 p-4 rounded-lg bg-red-50 border border-red-200 text-red-700">
+                        <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                        <span>{error}</span>
                     </div>
                 </div>
-            </section>
+            )}
 
-            {/* FAQ List */}
-            <section className="py-12 sm:py-16 lg:py-20 px-4">
-                <div className="max-w-4xl mx-auto">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 sm:mb-12">
-                        <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
-                            {searchTerm || selectedCategory !== 'all' ? 'Search Results' : 'All Questions'}
-                        </h2>
-                        <div className="text-sm sm:text-base text-gray-600 bg-green-50 px-3 sm:px-4 py-2 rounded-full border border-green-100 self-start sm:self-auto">
-                            {filteredFAQs.length} question{filteredFAQs.length !== 1 ? 's' : ''} found
-                        </div>
-                    </div>
+            {!loading && !error && (
+                <>
+                    {/* Popular FAQs */}
+                    {!searchTerm && selectedCategory === 'all' && popularFAQs.length > 0 && (
+                        <section className="py-12 sm:py-16 lg:py-20 px-4">
+                            <div className="max-w-6xl mx-auto">
+                                <h2 className="text-2xl sm:text-3xl font-bold text-center text-gray-900 mb-8 sm:mb-12 lg:mb-16">
+                                    Most Asked Questions
+                                </h2>
 
-                    {filteredFAQs.length > 0 ? (
-                        <div className="space-y-4 sm:space-y-6">
-                            {filteredFAQs.map((faq) => (
-                                <Card key={faq.id} className="shadow-md hover:shadow-lg transition-all duration-300 border-0 bg-white/95 backdrop-blur-sm">
-                                    <Collapsible
-                                        open={openFAQs.includes(faq.id)}
-                                        onOpenChange={() => toggleFAQ(faq.id)}
-                                    >
-                                        <CollapsibleTrigger className="w-full">
-                                            <CardHeader className="cursor-pointer hover:bg-green-50/50 transition-colors duration-200 p-4 sm:p-6 lg:p-8">
-                                                <div className="flex items-start justify-between gap-3 sm:gap-6">
-                                                    <div className="flex flex-col sm:flex-row sm:items-start sm:space-x-6 text-left flex-1">
-                                                        <div className="flex-shrink-0 mb-2 sm:mb-0 sm:mt-1">
-                                                            <Badge variant="outline" className="border-green-200 text-green-600 px-2 sm:px-3 py-1 text-xs">
-                                                                {categories.find(cat => cat.id === faq.category)?.label}
-                                                            </Badge>
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <CardTitle className="text-base sm:text-lg font-semibold text-gray-900 leading-relaxed">
-                                                                {faq.question}
-                                                            </CardTitle>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex-shrink-0">
-                                                        {openFAQs.includes(faq.id) ? (
-                                                            <Minus className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
-                                                        ) : (
-                                                            <Plus className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
-                                                        )}
-                                                    </div>
+                                <div className="grid gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-3">
+                                    {popularFAQs.map((faq) => (
+                                        <Card key={faq.id} className="shadow-lg hover:shadow-xl transition-all duration-300 border-0 bg-white/90 backdrop-blur-sm group cursor-pointer transform hover:-translate-y-1">
+                                            <CardContent className="p-6 sm:p-8">
+                                                <div className="flex items-start justify-between mb-4 sm:mb-6">
+                                                    <Badge variant="outline" className="border-green-200 text-green-600 text-xs px-2 sm:px-3 py-1 text-center">
+                                                        {categories.find(c => c.id === faq.category)?.label ?? faq.category}
+                                                    </Badge>
+                                                    <HelpCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
                                                 </div>
-                                            </CardHeader>
-                                        </CollapsibleTrigger>
 
-                                        <CollapsibleContent>
-                                            <CardContent className="pt-0 pb-6 sm:pb-8 px-4 sm:px-6 lg:px-8">
-                                                <div className="sm:pl-6 sm:border-l-4 sm:border-green-100 sm:ml-6">
-                                                    <p className="text-gray-700 leading-relaxed text-sm sm:text-base mb-4 sm:mb-6">
-                                                        {faq.answer}
-                                                    </p>
-                                                    <div className="flex flex-wrap gap-2 sm:gap-3">
-                                                        {faq.tags.map((tag, index) => (
-                                                            <Badge
-                                                                key={index}
-                                                                variant="secondary"
-                                                                className="text-xs bg-green-50 text-green-700 hover:bg-green-100 px-2 sm:px-3 py-1"
-                                                            >
-                                                                {tag}
-                                                            </Badge>
-                                                        ))}
-                                                    </div>
-                                                </div>
+                                                <h3 className="font-semibold text-gray-900 mb-3 sm:mb-4 group-hover:text-green-600 transition-colors line-clamp-3 text-base sm:text-lg leading-tight">
+                                                    {faq.question}
+                                                </h3>
+
+                                                <p className="text-gray-600 text-sm leading-relaxed line-clamp-3 mb-4 sm:mb-6">
+                                                    {faq.answer}
+                                                </p>
+
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="text-green-600 hover:text-green-700 hover:bg-green-50 p-0 h-auto font-medium transition-all duration-200 text-sm"
+                                                    onClick={() => toggleFAQ(faq.id)}
+                                                >
+                                                    Read Full Answer
+                                                    <ChevronRight className="h-3 w-3 ml-1 sm:ml-2" />
+                                                </Button>
                                             </CardContent>
-                                        </CollapsibleContent>
-                                    </Collapsible>
-                                </Card>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-12 sm:py-20">
-                            <HelpCircle className="h-16 w-16 sm:h-20 sm:w-20 text-gray-300 mx-auto mb-4 sm:mb-6" />
-                            <h3 className="text-lg sm:text-xl font-semibold text-gray-600 mb-2 sm:mb-3">No questions found</h3>
-                            <p className="text-gray-500 mb-4 sm:mb-6 text-sm sm:text-base">Try adjusting your search terms or category filter</p>
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    setSearchTerm('');
-                                    setSelectedCategory('all');
-                                }}
-                                className="border-green-200 text-green-600 hover:bg-green-50 px-4 sm:px-6 py-2 sm:py-3"
-                            >
-                                Clear Filters
-                            </Button>
-                        </div>
+                                        </Card>
+                                    ))}
+                                </div>
+                            </div>
+                        </section>
                     )}
-                </div>
-            </section>
+
+                    {/* Category Filter */}
+                    <section className="py-8 sm:py-12 px-4">
+                        <div className="max-w-6xl mx-auto">
+                            <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:justify-center gap-2 sm:gap-4 mb-8 sm:mb-12 lg:mb-16">
+                                {categories.map((category) => (
+                                    <Button
+                                        key={category.id}
+                                        onClick={() => setSelectedCategory(category.id)}
+                                        variant={selectedCategory === category.id ? "default" : "outline"}
+                                        className={`px-3 sm:px-6 py-2 sm:py-3 transition-all duration-300 text-xs sm:text-sm ${selectedCategory === category.id
+                                            ? 'bg-green-600 text-white hover:bg-green-700 shadow-lg'
+                                            : 'border-green-200 text-green-600 hover:bg-green-50 hover:border-green-300'
+                                        }`}
+                                        size="sm"
+                                    >
+                                        <category.icon className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-3" />
+                                        <span className="hidden sm:inline">{category.label}</span>
+                                        <span className="sm:hidden">{category.label.split(' ')[0]}</span>
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* FAQ List */}
+                    <section className="py-12 sm:py-16 lg:py-20 px-4">
+                        <div className="max-w-4xl mx-auto">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 sm:mb-12">
+                                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                                    {searchTerm || selectedCategory !== 'all' ? 'Search Results' : 'All Questions'}
+                                </h2>
+                                <div className="text-sm sm:text-base text-gray-600 bg-green-50 px-3 sm:px-4 py-2 rounded-full border border-green-100 self-start sm:self-auto">
+                                    {filteredFAQs.length} question{filteredFAQs.length !== 1 ? 's' : ''} found
+                                </div>
+                            </div>
+
+                            {filteredFAQs.length > 0 ? (
+                                <div className="space-y-4 sm:space-y-6">
+                                    {filteredFAQs.map((faq) => (
+                                        <Card key={faq.id} className="shadow-md hover:shadow-lg transition-all duration-300 border-0 bg-white/95 backdrop-blur-sm">
+                                            <Collapsible
+                                                open={openFAQs.includes(faq.id)}
+                                                onOpenChange={() => toggleFAQ(faq.id)}
+                                            >
+                                                <CollapsibleTrigger className="w-full">
+                                                    <CardHeader className="cursor-pointer hover:bg-green-50/50 transition-colors duration-200 p-4 sm:p-6 lg:p-8">
+                                                        <div className="flex items-start justify-between gap-3 sm:gap-6">
+                                                            <div className="flex flex-col sm:flex-row sm:items-start sm:space-x-6 text-left flex-1">
+                                                                <div className="flex-shrink-0 mb-2 sm:mb-0 sm:mt-1">
+                                                                    <Badge variant="outline" className="border-green-200 text-green-600 px-2 sm:px-3 py-1 text-xs">
+                                                                        {categories.find(c => c.id === faq.category)?.label ?? faq.category}
+                                                                    </Badge>
+                                                                </div>
+                                                                <div className="flex-1">
+                                                                    <CardTitle className="text-base sm:text-lg font-semibold text-gray-900 leading-relaxed">
+                                                                        {faq.question}
+                                                                    </CardTitle>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex-shrink-0">
+                                                                {openFAQs.includes(faq.id) ? (
+                                                                    <Minus className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+                                                                ) : (
+                                                                    <Plus className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </CardHeader>
+                                                </CollapsibleTrigger>
+
+                                                <CollapsibleContent>
+                                                    <CardContent className="pt-0 pb-6 sm:pb-8 px-4 sm:px-6 lg:px-8">
+                                                        <div className="sm:pl-6 sm:border-l-4 sm:border-green-100 sm:ml-6">
+                                                            <p className="text-gray-700 leading-relaxed text-sm sm:text-base">
+                                                                {faq.answer}
+                                                            </p>
+                                                        </div>
+                                                    </CardContent>
+                                                </CollapsibleContent>
+                                            </Collapsible>
+                                        </Card>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="text-center py-12 sm:py-20">
+                                    <HelpCircle className="h-16 w-16 sm:h-20 sm:w-20 text-gray-300 mx-auto mb-4 sm:mb-6" />
+                                    <h3 className="text-lg sm:text-xl font-semibold text-gray-600 mb-2 sm:mb-3">
+                                        {faqs.length === 0 ? 'No FAQs published yet' : 'No questions found'}
+                                    </h3>
+                                    <p className="text-gray-500 mb-4 sm:mb-6 text-sm sm:text-base">
+                                        {faqs.length === 0
+                                            ? 'Check back soon for answers to common questions.'
+                                            : 'Try adjusting your search terms or category filter'}
+                                    </p>
+                                    {faqs.length > 0 && (
+                                        <Button
+                                            variant="outline"
+                                            onClick={() => { setSearchTerm(''); setSelectedCategory('all'); }}
+                                            className="border-green-200 text-green-600 hover:bg-green-50 px-4 sm:px-6 py-2 sm:py-3"
+                                        >
+                                            Clear Filters
+                                        </Button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                </>
+            )}
 
             {/* Contact Support */}
             <section className="py-16 sm:py-20 lg:py-24 px-4 bg-gradient-to-r from-green-600 to-green-700">

@@ -24,6 +24,7 @@ import {
     type Tier,
     type StkPushResponse,
 } from '@/lib/api/payments';
+import { apiRequest } from '@/lib/api/client';
 import DashboardHeader from '../components/DashboardHeader';
 
 type Step = 'plans' | 'phone' | 'pending' | 'success' | 'failed';
@@ -49,6 +50,9 @@ export default function SubscribePage() {
     const [stkData, setStkData] = useState<StkPushResponse | null>(null);
     const [pollError, setPollError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [simulating, setSimulating] = useState(false);
+
+    const isDev = process.env.NODE_ENV === 'development';
 
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const pollCount = useRef(0);
@@ -141,6 +145,19 @@ export default function SubscribePage() {
             setPhoneError(err.message || 'Could not initiate payment. Try again.');
         } finally {
             setSubmitting(false);
+        }
+    }
+
+    async function handleSimulateSuccess() {
+        if (!stkData) return;
+        setSimulating(true);
+        try {
+            await apiRequest(`/payments/dev/confirm/${stkData.checkout_request_id}`, { method: 'POST' });
+            // Let the existing polling pick up the 'success' status
+        } catch {
+            // ignore — polling will catch it
+        } finally {
+            setSimulating(false);
         }
     }
 
@@ -370,6 +387,27 @@ export default function SubscribePage() {
                     >
                         Try again
                     </button>
+
+                    {isDev && (
+                        <div className="mt-6 pt-5 border-t border-dashed border-gray-200">
+                            <p className="text-xs text-amber-600 font-medium mb-2">
+                                🛠 Dev: Safaricom sandbox doesn't send callbacks to localhost/ngrok
+                            </p>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-amber-400 text-amber-700 hover:bg-amber-50 text-xs"
+                                onClick={handleSimulateSuccess}
+                                disabled={simulating}
+                            >
+                                {simulating ? (
+                                    <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Simulating...</>
+                                ) : (
+                                    'Simulate Successful Payment'
+                                )}
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </div>
         );

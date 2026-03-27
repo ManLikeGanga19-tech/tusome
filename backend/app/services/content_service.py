@@ -82,15 +82,30 @@ class ContentService:
         return lesson
 
     async def search(self, query: str, user: User):
+        from app.schemas.content import SearchResultResponse
         result = await self.db.execute(
             select(Lesson)
-            .options(selectinload(Lesson.resources))
+            .options(selectinload(Lesson.subject))
             .join(Subject)
             .where(
                 Subject.grade_category == user.grade_category,
                 Lesson.is_published.is_(True),
                 Lesson.title.ilike(f"%{query}%"),
             )
+            .order_by(Lesson.title)
             .limit(20)
         )
-        return result.scalars().all()
+        lessons = result.scalars().all()
+        return [
+            SearchResultResponse(
+                id=l.id,
+                subject_id=l.subject_id,
+                subject_name=l.subject.name,
+                title=l.title,
+                slug=l.slug,
+                description=l.description,
+                duration_minutes=l.duration_minutes,
+                is_free_preview=l.is_free_preview,
+            )
+            for l in lessons
+        ]

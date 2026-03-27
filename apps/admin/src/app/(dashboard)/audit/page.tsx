@@ -48,7 +48,7 @@ export default function AuditPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Audit Log</h1>
         <p className="text-sm text-gray-500 mt-1">
@@ -57,7 +57,7 @@ export default function AuditPage() {
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto"><table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50">
               <th className="text-left px-4 py-3 font-medium text-gray-600">
@@ -135,13 +135,13 @@ export default function AuditPage() {
               </tr>
             )}
           </tbody>
-        </table>
+        </table></div>
 
         {hasMore && !loading && (
           <div className="px-4 py-3 border-t border-gray-100 text-center">
             <button
               onClick={loadMore}
-              className="text-xs text-gray-500 hover:text-gray-900 underline"
+              className="text-xs text-gray-500 hover:text-green-700 underline"
             >
               Load more
             </button>

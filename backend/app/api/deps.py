@@ -8,7 +8,7 @@ from app.database import get_db
 from app.core.security import decode_token
 from app.core.exceptions import UnauthorizedError, ForbiddenError, SubscriptionRequiredError
 from app.models.user import User
-from app.models.admin import AdminUser
+from app.models.admin import AdminUser, AdminSession
 
 bearer_scheme = HTTPBearer()
 
@@ -56,6 +56,7 @@ async def get_current_admin(
         if payload.get("type") != "access" or payload.get("iss") != "tusome-admin":
             raise UnauthorizedError("Invalid admin token")
         admin_id: str = payload.get("sub")
+        jti: str | None = payload.get("jti")
     except JWTError:
         raise UnauthorizedError("Invalid or expired token")
 
@@ -63,6 +64,21 @@ async def get_current_admin(
     admin = result.scalar_one_or_none()
     if not admin or not admin.is_active:
         raise UnauthorizedError("Admin account not found or deactivated")
+
+    # If token has a JTI, verify the session hasn't been force-revoked
+    if jti:
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        sess_r = await db.execute(
+            select(AdminSession).where(
+                AdminSession.jti == jti,
+                AdminSession.is_active.is_(True),
+                AdminSession.expires_at >= now,
+            )
+        )
+        if not sess_r.scalar_one_or_none():
+            raise UnauthorizedError("Session has been revoked or expired")
+
     return admin
 
 

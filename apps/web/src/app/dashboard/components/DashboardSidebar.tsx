@@ -1,259 +1,171 @@
 'use client'
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     Trophy,
+    Flame,
+    Star,
+    BookOpen,
     Download,
     Phone,
     Calendar,
-    Play,
-    CheckCircle,
-    Award,
-    Target,
-    Loader2
+    TrendingUp,
+    Loader2,
+    Brain,
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { useAuth, User as BackendUser } from '@/lib/api/auth';
+import { useAuth } from '@/lib/api/auth';
+import { progressApi, type UserStats, currentLevelXp } from '@/lib/api/progress';
 
-// Display user interface for component
-interface User {
-    name: string;
-    email: string;
-    subscription: string;
-    tier: 'primary' | 'junior' | 'senior';
-    grade: string;
-    profileImage: string;
-    joinDate: string;
-    streakDays: number;
-    totalPoints: number;
-    completedLessons: number;
-    currentLevel: string;
-}
-
-interface Activity {
-    type: 'lesson' | 'quiz' | 'milestone' | 'streak';
-    subject: string;
-    title: string;
-    time: string;
-    points: number;
-}
-
-// Transform backend user data to display format
-const transformUserData = (backendUser: BackendUser): User => {
-    const joinDate = new Date(backendUser.created_at);
-    const daysSinceJoin = Math.floor((Date.now() - joinDate.getTime()) / (1000 * 60 * 60 * 24));
-
-    const getSubscriptionDisplay = (status: string, tier: string) => {
-        if (status === 'trial') return `${tier} - Free Trial`;
-        if (status === 'active') return `${tier} - Active`;
-        if (status === 'expired') return `${tier} - Expired`;
-        if (status === 'cancelled') return `${tier} - Cancelled`;
-        return tier;
-    };
-
-    const getGradeDisplay = (grade: string) => {
-        const gradeNumber = grade.replace('grade-', '');
-        return `Grade ${gradeNumber}`;
-    };
-
-    return {
-        name: `${backendUser.first_name} ${backendUser.last_name}`,
-        email: backendUser.email,
-        subscription: getSubscriptionDisplay(backendUser.subscription_status, backendUser.grade_tier),
-        tier: backendUser.grade_category,
-        grade: getGradeDisplay(backendUser.grade),
-        profileImage: backendUser.profile_image || '',
-        joinDate: joinDate.toLocaleDateString(),
-        streakDays: Math.min(daysSinceJoin, 99),
-        totalPoints: daysSinceJoin * 25,
-        completedLessons: Math.floor(daysSinceJoin * 1.5),
-        currentLevel: `Level ${Math.floor(daysSinceJoin / 7) + 1}`
-    };
+const TIER_COLOR: Record<string, string> = {
+    primary: 'bg-blue-100 text-blue-600',
+    junior: 'bg-green-100 text-green-600',
+    senior: 'bg-red-100 text-red-600',
 };
 
-// Generate recent activities based on user data
-const generateRecentActivities = (user: User): Activity[] => {
-    const activityTemplates = {
-        primary: [
-            { type: 'lesson', subject: 'Mathematics', title: 'Completed Addition & Subtraction', time: '2 hours ago', points: 25 },
-            { type: 'quiz', subject: 'English', title: 'Reading Quiz - Perfect Score!', time: '4 hours ago', points: 50 },
-            { type: 'milestone', subject: 'Science', title: 'Plants & Animals Module Complete', time: '1 day ago', points: 100 },
-            { type: 'streak', subject: 'General', title: '7-Day Learning Streak!', time: '2 days ago', points: 75 },
-            { type: 'lesson', subject: 'Kiswahili', title: 'Mazungumzo ya Kila Siku', time: '3 days ago', points: 30 }
-        ],
-        junior: [
-            { type: 'lesson', subject: 'Mathematics', title: 'Linear Equations Mastered', time: '1 hour ago', points: 35 },
-            { type: 'quiz', subject: 'Science', title: 'Chemistry Quiz - 85% Score', time: '3 hours ago', points: 60 },
-            { type: 'milestone', subject: 'English', title: 'Essay Writing Skills Complete', time: '6 hours ago', points: 120 },
-            { type: 'streak', subject: 'General', title: '12-Day Learning Streak!', time: '1 day ago', points: 100 },
-            { type: 'lesson', subject: 'Languages', title: 'French Basics Lesson 5', time: '2 days ago', points: 40 }
-        ],
-        senior: [
-            { type: 'lesson', subject: 'Mathematics', title: 'Calculus Applications Complete', time: '30 min ago', points: 45 },
-            { type: 'quiz', subject: 'Chemistry', title: 'Organic Chemistry - 92% Score', time: '2 hours ago', points: 80 },
-            { type: 'milestone', subject: 'Literature', title: 'Shakespeare Module Finished', time: '5 hours ago', points: 150 },
-            { type: 'streak', subject: 'General', title: '15-Day Learning Streak!', time: '1 day ago', points: 125 },
-            { type: 'lesson', subject: 'Physics', title: 'Quantum Mechanics Intro', time: '2 days ago', points: 50 }
-        ]
-    };
-
-    return activityTemplates[user.tier] as Activity[];
+const TIER_BTN: Record<string, string> = {
+    primary: 'bg-blue-600 hover:bg-blue-700',
+    junior: 'bg-green-600 hover:bg-green-700',
+    senior: 'bg-red-600 hover:bg-red-700',
 };
-
-// Content access configuration
-const contentAccess = {
-    primary: { color: "blue" },
-    junior: { color: "green" },
-    senior: { color: "red" }
-};
-
 
 export default function DashboardSidebar() {
-    const { user: authUser, loading: isLoading, error } = useAuth();
+    const router = useRouter();
+    const { user, loading: authLoading } = useAuth();
 
-    const user = authUser ? transformUserData(authUser as unknown as BackendUser) : null;
-    const recentActivities = user ? generateRecentActivities(user) : [];
+    const [stats, setStats] = useState<UserStats | null>(null);
+    const [statsLoading, setStatsLoading] = useState(true);
 
-    const getActivityIcon = (type: string) => {
-        switch (type) {
-            case 'lesson': return <Play className="h-4 w-4 text-blue-600" />;
-            case 'quiz': return <CheckCircle className="h-4 w-4 text-green-600" />;
-            case 'milestone': return <Award className="h-4 w-4 text-purple-600" />;
-            case 'streak': return <Target className="h-4 w-4 text-orange-600" />;
-            default: return <Play className="h-4 w-4 text-blue-600" />;
-        }
-    };
+    useEffect(() => {
+        if (authLoading || !user) return;
+        progressApi.getStats()
+            .then(setStats)
+            .catch(() => { /* non-blocking */ })
+            .finally(() => setStatsLoading(false));
+    }, [authLoading, user]);
 
-    const getActivityBgColor = (type: string) => {
-        switch (type) {
-            case 'lesson': return 'bg-blue-100';
-            case 'quiz': return 'bg-green-100';
-            case 'milestone': return 'bg-purple-100';
-            case 'streak': return 'bg-orange-100';
-            default: return 'bg-blue-100';
-        }
-    };
+    const tier = (user?.grade_category ?? 'junior') as 'primary' | 'junior' | 'senior';
+    const tierColor = TIER_COLOR[tier] ?? TIER_COLOR.junior;
+    const tierBtn = TIER_BTN[tier] ?? TIER_BTN.junior;
 
-    // Loading state
-    if (isLoading || !user) {
+    // XP bar
+    const levelStart = stats ? currentLevelXp(stats.level) : 0;
+    const levelEnd = stats?.next_level_xp ?? (stats ? stats.total_xp : 50);
+    const xpProgress = stats
+        ? stats.next_level_xp
+            ? Math.round(((stats.total_xp - levelStart) / (levelEnd - levelStart)) * 100)
+            : 100
+        : 0;
+
+    if (authLoading || statsLoading) {
         return (
             <div className="space-y-4 sm:space-y-6">
-                {/* Loading User Stats Card */}
                 <Card>
-                    <CardHeader className="pb-2 sm:pb-3">
-                        <CardTitle className="text-base sm:text-lg">Learning Progress</CardTitle>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base sm:text-lg">My Progress</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3 sm:space-y-4">
-                        <div className="text-center">
-                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-200 rounded-full mx-auto mb-2 animate-pulse"></div>
-                            <div className="h-4 bg-gray-200 rounded w-20 mx-auto mb-1 animate-pulse"></div>
-                            <div className="h-3 bg-gray-200 rounded w-16 mx-auto animate-pulse"></div>
+                    <CardContent className="space-y-3">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="flex justify-between items-center">
+                                <div className="h-3 bg-gray-200 rounded w-20 animate-pulse" />
+                                <div className="h-3 bg-gray-200 rounded w-12 animate-pulse" />
+                            </div>
+                        ))}
+                        <div className="flex items-center justify-center py-2">
+                            <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
                         </div>
-                        <div className="space-y-2">
-                            {[1, 2, 3].map(i => (
-                                <div key={i} className="flex justify-between items-center">
-                                    <div className="h-3 bg-gray-200 rounded w-20 animate-pulse"></div>
-                                    <div className="h-3 bg-gray-200 rounded w-12 animate-pulse"></div>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Loading indicator */}
-                <div className="flex items-center justify-center py-4">
-                    <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                    <span className="ml-2 text-sm text-gray-500">Loading...</span>
-                </div>
-            </div>
-        );
-    }
-
-    // Error state
-    if (error) {
-        return (
-            <div className="space-y-4 sm:space-y-6">
-                <Card className="border-red-200 bg-red-50">
-                    <CardContent className="p-4 text-center">
-                        <div className="text-red-600 mb-2">
-                            <h3 className="font-semibold text-sm">Error Loading Sidebar</h3>
-                            <p className="text-xs">{error}</p>
-                        </div>
-                        <Button
-                            onClick={() => window.location.reload()}
-                            size="sm"
-                            className="bg-red-600 hover:bg-red-700 text-white text-xs"
-                        >
-                            Retry
-                        </Button>
                     </CardContent>
                 </Card>
             </div>
         );
     }
-
-    const tierColor = contentAccess[user.tier].color;
-
-    // Calculate overall progress based on user data
-    const calculateOverallProgress = () => {
-        // Base progress on days since joining, completed lessons, and streak
-        const baseProgress = Math.min(user.streakDays * 2, 60); // Streak contributes up to 60%
-        const lessonProgress = Math.min(user.completedLessons * 0.5, 30); // Lessons contribute up to 30%
-        const timeProgress = Math.min(Math.floor((Date.now() - new Date(user.joinDate).getTime()) / (1000 * 60 * 60 * 24)) * 0.3, 10); // Time contributes up to 10%
-
-        return Math.min(Math.round(baseProgress + lessonProgress + timeProgress), 100);
-    };
-
-    const overallProgress = calculateOverallProgress();
 
     return (
         <div className="space-y-4 sm:space-y-6">
-            {/* User Stats Card */}
+            {/* Stats card */}
             <Card>
                 <CardHeader className="pb-2 sm:pb-3">
-                    <CardTitle className="text-base sm:text-lg">Learning Progress</CardTitle>
+                    <CardTitle className="text-base sm:text-lg">My Progress</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 sm:space-y-4">
+                    {/* Level badge */}
                     <div className="text-center">
-                        <div className={`w-12 h-12 sm:w-16 sm:h-16 ${tierColor === 'blue' ? 'bg-blue-100' :
-                            tierColor === 'green' ? 'bg-green-100' :
-                                'bg-red-100'
-                            } rounded-full flex items-center justify-center mx-auto mb-2`}>
-                            <Trophy className={`h-6 w-6 sm:h-8 sm:w-8 ${tierColor === 'blue' ? 'text-blue-600' :
-                                tierColor === 'green' ? 'text-green-600' :
-                                    'text-red-600'
-                                }`} />
+                        <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-2 ${tierColor}`}>
+                            <Trophy className="h-6 w-6 sm:h-8 sm:w-8" />
                         </div>
-                        <p className="font-semibold text-gray-900 text-sm sm:text-base">{user.currentLevel}</p>
+                        <p className="font-semibold text-gray-900 text-sm sm:text-base">
+                            {stats?.level_name ?? 'Mwanzo'}
+                        </p>
                         <p className="text-xs sm:text-sm text-gray-500">
-                            {user.grade}
+                            Level {stats?.level ?? 1}
                         </p>
                     </div>
 
-                    <div className="space-y-2 sm:space-y-3">
+                    {/* XP progress bar */}
+                    <div>
+                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                            <span>{(stats?.total_xp ?? 0).toLocaleString()} XP</span>
+                            <span>
+                                {stats?.next_level_xp
+                                    ? `${stats.next_level_xp.toLocaleString()} XP`
+                                    : 'Max level'}
+                            </span>
+                        </div>
+                        <Progress value={xpProgress} className="h-2" />
+                    </div>
+
+                    {/* Stats rows */}
+                    <div className="space-y-2 sm:space-y-3 pt-1">
                         <div className="flex justify-between items-center">
-                            <span className="text-xs sm:text-sm text-gray-600">Learning Streak</span>
-                            <span className="font-semibold text-orange-600 text-sm">{user.streakDays} days</span>
+                            <span className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-600">
+                                <Flame className="h-3.5 w-3.5 text-orange-500" /> Streak
+                            </span>
+                            <span className="font-semibold text-orange-600 text-sm">
+                                {stats?.current_streak ?? 0} days
+                            </span>
                         </div>
 
                         <div className="flex justify-between items-center">
-                            <span className="text-xs sm:text-sm text-gray-600">Total Points</span>
-                            <span className="font-semibold text-green-600 text-sm">{user.totalPoints.toLocaleString()}</span>
+                            <span className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-600">
+                                <Star className="h-3.5 w-3.5 text-yellow-500" /> Total XP
+                            </span>
+                            <span className="font-semibold text-green-600 text-sm">
+                                {(stats?.total_xp ?? 0).toLocaleString()}
+                            </span>
                         </div>
 
                         <div className="flex justify-between items-center">
-                            <span className="text-xs sm:text-sm text-gray-600">Lessons Done</span>
-                            <span className="font-semibold text-blue-600 text-sm">{user.completedLessons}</span>
+                            <span className="flex items-center gap-1.5 text-xs sm:text-sm text-gray-600">
+                                <BookOpen className="h-3.5 w-3.5 text-blue-500" /> Lessons Done
+                            </span>
+                            <span className="font-semibold text-blue-600 text-sm">
+                                {stats?.lessons_completed ?? 0}
+                            </span>
                         </div>
                     </div>
 
-                    <div className="pt-2 sm:pt-3 border-t">
-                        <p className="text-xs text-gray-500 mb-1 sm:mb-2">Overall Progress</p>
-                        <Progress value={overallProgress} className="h-1.5 sm:h-2" />
-                        <p className="text-xs text-gray-500 mt-1">{overallProgress}% complete this term</p>
-                    </div>
+                    {/* View progress link */}
+                    <Button
+                        onClick={() => router.push('/dashboard/progress')}
+                        variant="outline"
+                        className="w-full text-xs sm:text-sm h-8 sm:h-9"
+                        size="sm"
+                    >
+                        <TrendingUp className="h-3.5 w-3.5 mr-1.5" />
+                        View Full Progress
+                    </Button>
+                    <Button
+                        onClick={() => router.push('/dashboard/quizzes')}
+                        variant="outline"
+                        className="w-full text-xs sm:text-sm h-8 sm:h-9"
+                        size="sm"
+                    >
+                        <Brain className="h-3.5 w-3.5 mr-1.5" />
+                        My Quizzes
+                    </Button>
                 </CardContent>
             </Card>
 
@@ -278,55 +190,24 @@ export default function DashboardSidebar() {
                 </CardContent>
             </Card>
 
-            {/* Recent Activities */}
-            <Card>
-                <CardHeader className="pb-2 sm:pb-3">
-                    <CardTitle className="text-base sm:text-lg">Recent Activity</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2 sm:space-y-3">
-                    {recentActivities.slice(0, 4).map((activity, index) => (
-                        <div key={index} className="flex items-start space-x-2 sm:space-x-3">
-                            <div className={`w-6 h-6 sm:w-8 sm:h-8 ${getActivityBgColor(activity.type)} rounded-full flex items-center justify-center flex-shrink-0`}>
-                                {React.cloneElement(getActivityIcon(activity.type), {
-                                    className: "h-3 w-3 sm:h-4 sm:w-4 " + getActivityIcon(activity.type).props.className
-                                })}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-xs sm:text-sm font-medium text-gray-900 truncate">{activity.title}</p>
-                                <p className="text-xs text-gray-500">{activity.subject} • {activity.time}</p>
-                            </div>
-                            <span className="text-xs font-medium text-green-600">+{activity.points}</span>
-                        </div>
-                    ))}
-                </CardContent>
-            </Card>
-
-            {/* Subscription Status */}
-            <Card>
-                <CardContent className="p-3 sm:p-4">
-                    <div className="text-center">
+            {/* Subscription */}
+            {user?.subscription_status === 'trial' && (
+                <Card>
+                    <CardContent className="p-3 sm:p-4 text-center">
                         <p className="text-xs sm:text-sm font-medium text-gray-900 mb-1">
-                            {user.subscription}
+                            {user.grade_tier} — Free Trial
                         </p>
-                        {user.subscription.includes('Trial') && (
-                            <div>
-                                <p className="text-xs text-gray-500 mb-2">
-                                    Upgrade to unlock more features
-                                </p>
-                                <Button
-                                    size="sm"
-                                    className={`w-full text-xs h-7 ${tierColor === 'blue' ? 'bg-blue-600 hover:bg-blue-700' :
-                                        tierColor === 'green' ? 'bg-green-600 hover:bg-green-700' :
-                                            'bg-red-600 hover:bg-red-700'
-                                        } text-white`}
-                                >
-                                    Upgrade Now
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
+                        <p className="text-xs text-gray-500 mb-2">Upgrade to unlock all features</p>
+                        <Button
+                            onClick={() => router.push('/dashboard/subscribe')}
+                            size="sm"
+                            className={`w-full text-xs h-7 ${tierBtn} text-white`}
+                        >
+                            Upgrade Now
+                        </Button>
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 }

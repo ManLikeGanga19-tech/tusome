@@ -63,7 +63,7 @@ export default function AdminsPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Admins</h1>
@@ -71,7 +71,7 @@ export default function AdminsPage() {
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-green-700 text-white text-sm font-medium rounded-lg hover:bg-green-800 transition-colors"
         >
           <Plus size={14} />
           New Admin
@@ -84,7 +84,7 @@ export default function AdminsPage() {
             Loading…
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
                 <th className="text-left px-4 py-3 font-medium text-gray-600">
@@ -146,7 +146,7 @@ export default function AdminsPage() {
                     {a.role !== "super_admin" && (
                       <button
                         onClick={() => toggleActive(a)}
-                        className="text-xs text-gray-500 hover:text-gray-900 underline"
+                        className="text-xs text-gray-500 hover:text-green-700 underline"
                       >
                         {a.is_active ? "Deactivate" : "Activate"}
                       </button>
@@ -155,7 +155,7 @@ export default function AdminsPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
 
@@ -191,7 +191,7 @@ export default function AdminsPage() {
                     onChange={(e) =>
                       setForm((f) => ({ ...f, [field]: e.target.value }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
                   />
                 </div>
               ))}
@@ -205,7 +205,7 @@ export default function AdminsPage() {
                   onChange={(e) =>
                     setForm((f) => ({ ...f, role: e.target.value }))
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-700"
                 >
                   <option value="content_editor">Content Editor</option>
                   <option value="support_agent">Support Agent</option>
@@ -232,7 +232,7 @@ export default function AdminsPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-50"
+                  className="flex-1 py-2 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 disabled:opacity-50"
                 >
                   {submitting ? "Creating…" : "Create"}
                 </button>

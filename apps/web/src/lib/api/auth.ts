@@ -186,10 +186,17 @@ class AuthAPI {
         return this.request<User>('/users/me');
     }
 
-    async updateProfile(userData: Partial<User>): Promise<User> {
-        return this.request<User>('/users/me', {
-            method: 'PUT',
-            body: JSON.stringify(userData),
+    async updateProfile(data: { first_name?: string; last_name?: string; profile_image?: string }): Promise<User> {
+        return this.request<User>('/auth/profile', {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async changePassword(data: { current_password: string; new_password: string }): Promise<void> {
+        await this.request<{ message: string }>('/auth/change-password', {
+            method: 'POST',
+            body: JSON.stringify(data),
         });
     }
 

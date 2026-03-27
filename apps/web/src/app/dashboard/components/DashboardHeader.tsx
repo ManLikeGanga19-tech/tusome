@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     BookOpen,
@@ -10,10 +10,12 @@ import {
     Wifi,
     Battery,
     X,
-    Menu,
     LogOut,
     User,
-    ChevronDown
+    ChevronDown,
+    Clock,
+    Lock,
+    Loader2,
 } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,167 +28,194 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth, User as BackendUser } from '@/lib/api/auth';
-
-// Display user interface for component
-interface User {
-    name: string;
-    email: string;
-    subscription: string;
-    tier: 'primary' | 'junior' | 'senior';
-    grade: string;
-    profileImage: string;
-    joinDate: string;
-    streakDays: number;
-    totalPoints: number;
-    completedLessons: number;
-    currentLevel: string;
-}
+import { contentApi, type SearchResult } from '@/lib/api/content';
+import { progressApi } from '@/lib/api/progress';
 
 interface HeaderProps {
     onSearch?: (query: string) => void;
 }
 
-// Transform backend user data to display format
-const transformUserData = (backendUser: BackendUser): User => {
-    // Calculate days since joining
-    const joinDate = new Date(backendUser.created_at);
-    const daysSinceJoin = Math.floor((Date.now() - joinDate.getTime()) / (1000 * 60 * 60 * 24));
-
-    // Format subscription status
-    const getSubscriptionDisplay = (status: string, tier: string) => {
-        if (status === 'trial') return `${tier} - Free Trial`;
-        if (status === 'active') return `${tier} - Active`;
-        if (status === 'expired') return `${tier} - Expired`;
-        if (status === 'cancelled') return `${tier} - Cancelled`;
-        return tier;
-    };
-
-    // Get grade display (e.g., "Grade 8" from "grade-8")
-    const getGradeDisplay = (grade: string) => {
-        const gradeNumber = grade.replace('grade-', '');
-        return `Grade ${gradeNumber}`;
-    };
-
-    return {
-        name: `${backendUser.first_name} ${backendUser.last_name}`,
-        email: backendUser.email,
-        subscription: getSubscriptionDisplay(backendUser.subscription_status, backendUser.grade_tier),
-        tier: backendUser.grade_category,
-        grade: getGradeDisplay(backendUser.grade),
-        profileImage: backendUser.profile_image || '',
-        joinDate: joinDate.toLocaleDateString(),
-        streakDays: Math.min(daysSinceJoin, 99), // Simulate streak (you can implement real streak logic)
-        totalPoints: daysSinceJoin * 25, // Simulate points (you can implement real points system)
-        completedLessons: Math.floor(daysSinceJoin * 1.5), // Simulate completed lessons
-        currentLevel: `Level ${Math.floor(daysSinceJoin / 7) + 1}` // Simulate current level
-    };
+const TIER_COLOR: Record<string, string> = {
+    primary: 'bg-blue-600',
+    junior: 'bg-green-600',
+    senior: 'bg-red-600',
 };
 
+const TIER_BADGE: Record<string, string> = {
+    primary: 'bg-blue-100 text-blue-800',
+    junior: 'bg-green-100 text-green-800',
+    senior: 'bg-red-100 text-red-800',
+};
+
+// ── Search dropdown ───────────────────────────────────────────────────────────
+
+function SearchDropdown({
+    query,
+    results,
+    loading,
+    onSelect,
+    onClose,
+}: {
+    query: string;
+    results: SearchResult[];
+    loading: boolean;
+    onSelect: (r: SearchResult) => void;
+    onClose: () => void;
+}) {
+    if (!query || query.length < 2) return null;
+
+    return (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden max-h-80 overflow-y-auto">
+            {loading ? (
+                <div className="flex items-center gap-2 px-4 py-3 text-sm text-gray-400">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Searching…
+                </div>
+            ) : results.length === 0 ? (
+                <div className="px-4 py-3 text-sm text-gray-400">
+                    No lessons found for &quot;{query}&quot;
+                </div>
+            ) : (
+                <>
+                    <div className="px-3 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide border-b border-gray-100">
+                        {results.length} result{results.length !== 1 ? 's' : ''}
+                    </div>
+                    {results.map((r) => (
+                        <button
+                            key={r.id}
+                            onClick={() => onSelect(r)}
+                            className="w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-50 text-left border-b border-gray-50 last:border-0 transition-colors"
+                        >
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                    <span className="text-xs px-1.5 py-0.5 bg-green-50 text-green-700 rounded font-medium">
+                                        {r.subject_name}
+                                    </span>
+                                    {!r.is_free_preview && (
+                                        <Lock className="h-3 w-3 text-gray-300 flex-shrink-0" />
+                                    )}
+                                </div>
+                                <p className="text-sm font-medium text-gray-900 truncate">{r.title}</p>
+                                {r.description && (
+                                    <p className="text-xs text-gray-400 truncate mt-0.5">{r.description}</p>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-gray-400 flex-shrink-0 mt-1">
+                                <Clock className="h-3 w-3" />
+                                {r.duration_minutes}m
+                            </div>
+                        </button>
+                    ))}
+                </>
+            )}
+        </div>
+    );
+}
+
+// ── Main header ───────────────────────────────────────────────────────────────
 
 export default function DashboardHeader({ onSearch }: HeaderProps) {
     const router = useRouter();
-    const { user: authUser, loading: isLoading, error, logout } = useAuth();
-    const [searchQuery, setSearchQuery] = useState("");
+    const { user, loading: isLoading, logout } = useAuth();
+
+    // Search state
+    const [searchQuery, setSearchQuery] = useState('');
+    const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+    const [searchLoading, setSearchLoading] = useState(false);
+    const [showResults, setShowResults] = useState(false);
+    const searchRef = useRef<HTMLDivElement>(null);
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // UI state
     const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
-    const user = authUser ? transformUserData(authUser as unknown as BackendUser) : null;
+    // Real progress stats for dropdown
+    const [statsXp, setStatsXp] = useState<number | null>(null);
+    const [statsStreak, setStatsStreak] = useState<number | null>(null);
+    const [statsLessons, setStatsLessons] = useState<number | null>(null);
 
-    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const query = e.target.value;
-        setSearchQuery(query);
-        onSearch?.(query);
-    };
+    useEffect(() => {
+        // Only fetch stats for active subscribers and trial users — not expired/cancelled
+        if (!user || !['trial', 'active'].includes(user.subscription_status)) return;
+        progressApi.getStats().then((s) => {
+            setStatsXp(s.total_xp);
+            setStatsStreak(s.current_streak);
+            setStatsLessons(s.lessons_completed);
+        }).catch(() => {});
+    }, [user]);
 
-    const toggleMobileSearch = () => {
-        setIsMobileSearchOpen(!isMobileSearchOpen);
-        if (!isMobileSearchOpen) {
-            // Focus search input when opening
-            setTimeout(() => {
-                const searchInput = document.getElementById('mobile-search-input');
-                searchInput?.focus();
-            }, 100);
+    // Debounced search
+    const runSearch = useCallback((q: string) => {
+        if (q.length < 2) {
+            setSearchResults([]);
+            setShowResults(false);
+            return;
         }
-    };
+        setSearchLoading(true);
+        setShowResults(true);
+        contentApi.search(q)
+            .then(setSearchResults)
+            .catch(() => setSearchResults([]))
+            .finally(() => setSearchLoading(false));
+    }, []);
 
-    const closeMobileSearch = () => {
-        setIsMobileSearchOpen(false);
-        setSearchQuery("");
-    };
-
-    // Get tier color for user avatar
-    const getTierColor = (tier: string) => {
-        switch (tier) {
-            case 'primary': return 'bg-blue-600';
-            case 'junior': return 'bg-green-600';
-            case 'senior': return 'bg-red-600';
-            default: return 'bg-green-600';
+    function handleSearchChange(value: string) {
+        setSearchQuery(value);
+        onSearch?.(value);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => runSearch(value), 350);
+        if (value.length < 2) {
+            setShowResults(false);
+            setSearchResults([]);
+        } else {
+            setShowResults(true);
         }
-    };
-
-    const getTierColorHover = (tier: string) => {
-        switch (tier) {
-            case 'primary': return 'hover:bg-blue-700';
-            case 'junior': return 'hover:bg-green-700';
-            case 'senior': return 'hover:bg-red-700';
-            default: return 'hover:bg-green-700';
-        }
-    };
-
-    const getTierBadgeColor = (tier: string) => {
-        switch (tier) {
-            case 'primary': return 'bg-blue-100 text-blue-800';
-            case 'junior': return 'bg-green-100 text-green-800';
-            case 'senior': return 'bg-red-100 text-red-800';
-            default: return 'bg-green-100 text-green-800';
-        }
-    };
-
-    const handleAccountSettings = () => {
-        router.push('/dashboard/settings');
-    };
-
-    const handlePreferences = () => {
-        router.push('/dashboard/preferences');
-    };
-
-    const handleLogout = async () => {
-        try {
-            await logout();
-            router.push('/auth/signin');
-        } catch (error) {
-            console.error('Error during logout:', error);
-            router.push('/auth/signin');
-        }
-    };
-
-    // Loading state
-    if (isLoading || !user) {
-        return (
-            <header className="bg-white shadow-sm border-b sticky top-0 z-50">
-                <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-                    <div className="flex justify-between items-center h-14 sm:h-16">
-                        {/* Logo */}
-                        <div className="flex items-center flex-shrink-0">
-                            <div className="relative">
-                                <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
-                                <div className="absolute inset-0 bg-green-600/10 blur-sm opacity-75 rounded-full"></div>
-                            </div>
-                            <span className="ml-2 text-lg sm:text-xl font-bold text-gray-900 tracking-tight">Tusome</span>
-                        </div>
-
-                        {/* Loading placeholder */}
-                        <div className="flex items-center space-x-4">
-                            <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
-                        </div>
-                    </div>
-                </div>
-            </header>
-        );
     }
 
-    // Error state
-    if (error) {
+    function handleSelectResult(r: SearchResult) {
+        setShowResults(false);
+        setSearchQuery('');
+        setIsMobileSearchOpen(false);
+        router.push(`/dashboard/lessons/${r.id}`);
+    }
+
+    function handleCloseSearch() {
+        setShowResults(false);
+        setSearchQuery('');
+        setIsMobileSearchOpen(false);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+    }
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        function onClick(e: MouseEvent) {
+            if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+                setShowResults(false);
+            }
+        }
+        function onKey(e: KeyboardEvent) {
+            if (e.key === 'Escape') { setShowResults(false); setIsMobileSearchOpen(false); }
+        }
+        document.addEventListener('mousedown', onClick);
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('mousedown', onClick);
+            document.removeEventListener('keydown', onKey);
+        };
+    }, []);
+
+    const tier = (user?.grade_category ?? 'junior') as 'primary' | 'junior' | 'senior';
+    const tierColor = TIER_COLOR[tier] ?? TIER_COLOR.junior;
+    const tierBadge = TIER_BADGE[tier] ?? TIER_BADGE.junior;
+    const initials = user ? `${user.first_name[0]}${user.last_name[0]}` : '?';
+
+    const handleLogout = async () => {
+        await logout().catch(() => {});
+        router.push('/auth/signin');
+    };
+
+    if (isLoading || !user) {
         return (
             <header className="bg-white shadow-sm border-b sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
@@ -195,7 +224,7 @@ export default function DashboardHeader({ onSearch }: HeaderProps) {
                             <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
                             <span className="ml-2 text-lg sm:text-xl font-bold text-gray-900 tracking-tight">Tusome</span>
                         </div>
-                        <div className="text-sm text-red-600">{error}</div>
+                        <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse" />
                     </div>
                 </div>
             </header>
@@ -207,46 +236,57 @@ export default function DashboardHeader({ onSearch }: HeaderProps) {
             <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
                 <div className="flex justify-between items-center h-14 sm:h-16">
                     {/* Logo */}
-                    <div className="flex items-center flex-shrink-0">
-                        <div className="relative">
-                            <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
-                            <div className="absolute inset-0 bg-green-600/10 blur-sm opacity-75 rounded-full"></div>
-                        </div>
+                    <div className="flex items-center flex-shrink-0 cursor-pointer" onClick={() => router.push('/dashboard')}>
+                        <BookOpen className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
                         <span className="ml-2 text-lg sm:text-xl font-bold text-gray-900 tracking-tight">Tusome</span>
                     </div>
 
-                    {/* Desktop Search - Hidden on mobile, shown on tablet+ */}
-                    <div className="hidden md:flex flex-1 max-w-md mx-4 lg:mx-8">
+                    {/* Desktop search */}
+                    <div className="hidden md:flex flex-1 max-w-md mx-4 lg:mx-8" ref={searchRef}>
                         <div className="relative w-full">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                             <Input
-                                placeholder="Search lessons, subjects..."
+                                placeholder="Search lessons, subjects…"
                                 value={searchQuery}
-                                onChange={handleSearchChange}
-                                className="pl-10 w-full border-gray-200 focus:border-green-500 focus:ring-green-500 bg-gray-50 focus:bg-white transition-colors"
+                                onChange={(e) => handleSearchChange(e.target.value)}
+                                onFocus={() => searchQuery.length >= 2 && setShowResults(true)}
+                                className="pl-10 w-full border-gray-200 focus:border-green-500 focus:ring-green-500 bg-gray-50 focus:bg-white"
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={handleCloseSearch}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                </button>
+                            )}
+                            <SearchDropdown
+                                query={searchQuery}
+                                results={searchResults}
+                                loading={searchLoading}
+                                onSelect={handleSelectResult}
+                                onClose={handleCloseSearch}
                             />
                         </div>
                     </div>
 
-                    {/* Right Side Icons */}
-                    <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4">
-                        {/* Mobile Search Toggle - Shown only on mobile */}
+                    {/* Right side */}
+                    <div className="flex items-center space-x-2 sm:space-x-3">
+                        {/* Mobile search toggle */}
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={toggleMobileSearch}
+                            onClick={() => setIsMobileSearchOpen((v) => !v)}
                             className="md:hidden p-2 hover:bg-gray-100 rounded-full"
                         >
                             <Search className="h-5 w-5 text-gray-600" />
                         </Button>
 
-                        {/* Connection Status - Hidden on mobile */}
-                        <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600 bg-gray-50 rounded-full px-3 py-1.5">
+                        {/* Online indicator */}
+                        <div className="hidden sm:flex items-center gap-1.5 text-sm text-gray-600 bg-gray-50 rounded-full px-3 py-1.5">
                             <Wifi className="h-4 w-4 text-green-600" />
                             <Battery className="h-4 w-4 text-green-600" />
-                            <span className="hidden lg:inline font-medium text-green-600">
-                                Online
-                            </span>
+                            <span className="hidden lg:inline font-medium text-green-600">Online</span>
                         </div>
 
                         {/* Notifications */}
@@ -254,82 +294,74 @@ export default function DashboardHeader({ onSearch }: HeaderProps) {
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                                onClick={() => setIsNotificationsOpen((v) => !v)}
                                 className="p-2 hover:bg-gray-100 rounded-full relative"
                             >
                                 <Bell className="h-5 w-5 text-gray-600" />
-                                {/* Notification badge */}
-                                <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full flex items-center justify-center">
-                                    <span className="text-xs text-white font-bold">3</span>
+                                <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full flex items-center justify-center">
+                                    <span className="text-xs text-white font-bold leading-none">3</span>
                                 </span>
                             </Button>
                         </div>
 
-                        {/* User Profile Dropdown */}
+                        {/* User dropdown */}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button
                                     variant="ghost"
-                                    className="flex items-center space-x-2 sm:space-x-3 hover:bg-gray-50 rounded-lg px-2 sm:px-3 py-2 transition-colors"
+                                    className="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-2 sm:px-3 py-2"
                                 >
-                                    {/* User info - Hidden on mobile */}
                                     <div className="text-right hidden lg:block">
-                                        <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                                        <p className="text-xs text-gray-500">
-                                            {user.subscription}
+                                        <p className="text-sm font-medium text-gray-900">
+                                            {user.first_name} {user.last_name}
+                                        </p>
+                                        <p className="text-xs text-gray-500 capitalize">
+                                            {user.grade_tier} · {user.subscription_status}
                                         </p>
                                     </div>
-
-                                    {/* Avatar */}
-                                    <div className={`h-8 w-8 sm:h-9 sm:w-9 ${getTierColor(user.tier)} rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200`}>
-                                        <span className="text-white text-xs sm:text-sm font-medium">
-                                            {user.name.split(' ').map(n => n[0]).join('')}
-                                        </span>
+                                    <div className={`h-8 w-8 sm:h-9 sm:w-9 ${tierColor} rounded-full flex items-center justify-center flex-shrink-0`}>
+                                        <span className="text-white text-xs sm:text-sm font-medium">{initials}</span>
                                     </div>
-
-                                    {/* Dropdown arrow */}
                                     <ChevronDown className="h-4 w-4 text-gray-500 hidden sm:block" />
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-64">
-                                {/* User Info Header */}
                                 <DropdownMenuLabel>
-                                    <div className="flex items-center space-x-3">
-                                        <div className={`h-10 w-10 ${getTierColor(user.tier)} rounded-full flex items-center justify-center flex-shrink-0`}>
-                                            <span className="text-white text-sm font-medium">
-                                                {user.name.split(' ').map(n => n[0]).join('')}
-                                            </span>
+                                    <div className="flex items-center gap-3">
+                                        <div className={`h-10 w-10 ${tierColor} rounded-full flex items-center justify-center flex-shrink-0`}>
+                                            <span className="text-white text-sm font-medium">{initials}</span>
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="font-medium text-gray-900 truncate">{user.name}</p>
+                                            <p className="font-medium text-gray-900 truncate">{user.first_name} {user.last_name}</p>
                                             <p className="text-sm text-gray-500 truncate">{user.email}</p>
-                                            <div className="flex items-center space-x-2 mt-1">
-                                                <span className={`text-xs px-2 py-0.5 rounded-full ${getTierBadgeColor(user.tier)}`}>
-                                                    {user.grade}
-                                                </span>
-                                                <span className="text-xs text-gray-500">
-                                                    {user.currentLevel}
-                                                </span>
-                                            </div>
+                                            <span className={`text-xs px-2 py-0.5 rounded-full ${tierBadge} mt-1 inline-block`}>
+                                                {user.grade_tier}
+                                            </span>
                                         </div>
                                     </div>
                                 </DropdownMenuLabel>
 
                                 <DropdownMenuSeparator />
 
-                                {/* Quick Stats */}
+                                {/* Real stats */}
                                 <div className="px-2 py-2">
                                     <div className="grid grid-cols-3 gap-2 text-center">
                                         <div className="bg-gray-50 rounded-lg p-2">
-                                            <p className="text-xs font-medium text-gray-900">{user.streakDays}</p>
-                                            <p className="text-xs text-gray-500">Day Streak</p>
+                                            <p className="text-xs font-semibold text-gray-900">
+                                                {statsStreak ?? '—'}
+                                            </p>
+                                            <p className="text-xs text-gray-500">Streak</p>
                                         </div>
                                         <div className="bg-gray-50 rounded-lg p-2">
-                                            <p className="text-xs font-medium text-gray-900">{user.totalPoints}</p>
-                                            <p className="text-xs text-gray-500">Points</p>
+                                            <p className="text-xs font-semibold text-gray-900">
+                                                {statsXp != null ? statsXp.toLocaleString() : '—'}
+                                            </p>
+                                            <p className="text-xs text-gray-500">XP</p>
                                         </div>
                                         <div className="bg-gray-50 rounded-lg p-2">
-                                            <p className="text-xs font-medium text-gray-900">{user.completedLessons}</p>
+                                            <p className="text-xs font-semibold text-gray-900">
+                                                {statsLessons ?? '—'}
+                                            </p>
                                             <p className="text-xs text-gray-500">Lessons</p>
                                         </div>
                                     </div>
@@ -337,66 +369,68 @@ export default function DashboardHeader({ onSearch }: HeaderProps) {
 
                                 <DropdownMenuSeparator />
 
-                                {/* Menu Items */}
-                                <DropdownMenuItem onClick={handleAccountSettings} className="cursor-pointer">
+                                <DropdownMenuItem onClick={() => router.push('/dashboard/settings')} className="cursor-pointer">
                                     <User className="mr-2 h-4 w-4" />
-                                    <span>Account Settings</span>
+                                    Account Settings
                                 </DropdownMenuItem>
-
-                                <DropdownMenuItem onClick={handlePreferences} className="cursor-pointer">
+                                <DropdownMenuItem onClick={() => router.push('/dashboard/preferences')} className="cursor-pointer">
                                     <Settings className="mr-2 h-4 w-4" />
-                                    <span>Preferences</span>
+                                    Preferences
                                 </DropdownMenuItem>
 
                                 <DropdownMenuSeparator />
 
-                                {/* Logout Button */}
                                 <DropdownMenuItem
                                     onClick={handleLogout}
                                     className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
                                 >
                                     <LogOut className="mr-2 h-4 w-4" />
-                                    <span>Log out</span>
+                                    Log out
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
                 </div>
 
-                {/* Mobile Search Bar - Conditionally shown */}
+                {/* Mobile search bar */}
                 {isMobileSearchOpen && (
-                    <div className="md:hidden pb-3 pt-2 border-t border-gray-100 animate-in slide-in-from-top-2 duration-200">
+                    <div className="md:hidden pb-3 pt-2 border-t border-gray-100" ref={searchRef}>
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                             <Input
-                                id="mobile-search-input"
-                                placeholder="Search lessons, subjects..."
+                                autoFocus
+                                placeholder="Search lessons, subjects…"
                                 value={searchQuery}
-                                onChange={handleSearchChange}
-                                className="pl-10 pr-10 w-full border-gray-200 focus:border-green-500 focus:ring-green-500"
+                                onChange={(e) => handleSearchChange(e.target.value)}
+                                className="pl-10 pr-10 w-full border-gray-200 focus:border-green-500"
                             />
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={closeMobileSearch}
-                                className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full"
+                            <button
+                                onClick={handleCloseSearch}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
                             >
-                                <X className="h-4 w-4 text-gray-400" />
-                            </Button>
+                                <X className="h-4 w-4" />
+                            </button>
+                            <SearchDropdown
+                                query={searchQuery}
+                                results={searchResults}
+                                loading={searchLoading}
+                                onSelect={handleSelectResult}
+                                onClose={handleCloseSearch}
+                            />
                         </div>
                     </div>
                 )}
 
-                {/* Notifications Dropdown */}
+                {/* Notifications panel */}
                 {isNotificationsOpen && (
-                    <div className="absolute right-4 top-16 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50 animate-in slide-in-from-top-2 duration-200">
+                    <div className="absolute right-4 top-16 w-80 bg-white rounded-xl shadow-lg border border-gray-200 z-50">
                         <div className="p-4 border-b border-gray-100">
                             <h3 className="font-semibold text-gray-900">Notifications</h3>
                         </div>
                         <div className="max-h-64 overflow-y-auto">
-                            <div className="p-4 hover:bg-gray-50 border-b border-gray-100 cursor-pointer">
-                                <div className="flex items-start space-x-3">
-                                    <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <div className="p-4 hover:bg-gray-50 border-b border-gray-50 cursor-pointer">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
                                     <div>
                                         <p className="text-sm font-medium text-gray-900">New lesson available</p>
                                         <p className="text-xs text-gray-500">Mathematics: Quadratic Equations</p>
@@ -404,23 +438,13 @@ export default function DashboardHeader({ onSearch }: HeaderProps) {
                                     </div>
                                 </div>
                             </div>
-                            <div className="p-4 hover:bg-gray-50 border-b border-gray-100 cursor-pointer">
-                                <div className="flex items-start space-x-3">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                            <div className="p-4 hover:bg-gray-50 border-b border-gray-50 cursor-pointer">
+                                <div className="flex items-start gap-3">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0" />
                                     <div>
-                                        <p className="text-sm font-medium text-gray-900">Quiz completed</p>
-                                        <p className="text-xs text-gray-500">English Quiz: Score 85%</p>
+                                        <p className="text-sm font-medium text-gray-900">Keep your streak!</p>
+                                        <p className="text-xs text-gray-500">Study today to maintain your streak</p>
                                         <p className="text-xs text-gray-400 mt-1">1 hour ago</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="p-4 hover:bg-gray-50 cursor-pointer">
-                                <div className="flex items-start space-x-3">
-                                    <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-900">Achievement unlocked</p>
-                                        <p className="text-xs text-gray-500">12-day learning streak!</p>
-                                        <p className="text-xs text-gray-400 mt-1">2 hours ago</p>
                                     </div>
                                 </div>
                             </div>
@@ -434,14 +458,11 @@ export default function DashboardHeader({ onSearch }: HeaderProps) {
                 )}
             </div>
 
-            {/* Overlay for closing dropdowns */}
-            {(isMobileSearchOpen || isNotificationsOpen) && (
+            {/* Click-away overlay */}
+            {(isNotificationsOpen) && (
                 <div
                     className="fixed inset-0 z-40"
-                    onClick={() => {
-                        setIsMobileSearchOpen(false);
-                        setIsNotificationsOpen(false);
-                    }}
+                    onClick={() => setIsNotificationsOpen(false)}
                 />
             )}
         </header>
